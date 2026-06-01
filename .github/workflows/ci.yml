@@ -19,7 +19,7 @@ jobs:
     name: Build & Test
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # mise.toml に従って .NET SDK と just を導入する(ローカルと完全に同じバージョン)。
       - name: Setup mise (dotnet + just)
