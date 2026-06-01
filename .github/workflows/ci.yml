@@ -23,7 +23,7 @@ jobs:
 
       # mise.toml に従って .NET SDK と just を導入する(ローカルと完全に同じバージョン)。
       - name: Setup mise (dotnet + just)
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4
 
       # ソリューション全体(App / Platform / Core / Launcher / Tests)をビルド。
       # Directory.Build.props により警告はエラー扱いなので、ここがそのまま品質ゲートになる。
