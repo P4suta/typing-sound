@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      配布レイアウトの「入口」exe。WinUI ではない素のミニ実行ファイルで、隣の app\ にある本体
+      (TypingSound.App.exe = フル WinUI アプリ)を起動して即終了するだけのドア。
+      本体一式(ランタイム同梱で多数のファイル)を app\ サブフォルダへ押し込み、
+      利用者には起動 exe だけを見せるために用意する。本体側の機能は一切持たない。
+    -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- 出力名を TypingSound.exe にして配布フォルダ直下の起動 exe として目立たせる。 -->
+    <AssemblyName>TypingSound</AssemblyName>
+    <RootNamespace>TypingSoundLauncher</RootNamespace>
+
+    <!-- 利用者が実際に見て・ダブルクリックする入口 exe(TypingSound.exe)のアイコン。本体と同じ ico を共有する。 -->
+    <ApplicationIcon>..\TypingSound.App\Assets\AppIcon.ico</ApplicationIcon>
+
+    <!--
+      単一ファイル自己完結: これ自身を 1 つの TypingSound.exe にまとめる(他ファイルを直下に散らさない)。
+      単一ファイル化はトリミングや NativeAOT とは別機構なので、MSVC も WinUI 制約も関係なく成立する。
+      本体(WinUI)の publish には影響しない。
+    -->
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
+
+    <!--
+      トリミング有効。WinUI と違いこのランチャーは Process 起動と user32 の P/Invoke しか使わない trim-safe な
+      極小コードなので、ランタイム丸ごと同梱(約70MB)を削って入口 exe を十数 MB に収める。
+    -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+  </PropertyGroup>
+</Project>

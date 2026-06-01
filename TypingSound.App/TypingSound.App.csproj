@@ -1,0 +1,190 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>TypingSoundApp</RootNamespace>
+    <!--
+      CA5392 は WindowsAppSDK が各プロジェクトへ自動追加する vendored ソース
+      (UndockedRegFreeWinRT-AutoInitializer.cs)で発火する。当該ファイルは Microsoft により
+      「DO NOT MODIFY / 解析対象外」と明記された編集禁止ファイルで、本プロジェクト自身は P/Invoke を持たない。
+      よって CA5392 のみ App プロジェクトで除外する(Platform 側の自前 P/Invoke では CA5392 は有効のまま)。
+    -->
+    <NoWarn>$(NoWarn);CA5392</NoWarn>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- exe(app\TypingSound.App.exe)のアイコン。タイプライター線画＋紙色タイル。 -->
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!--
+      ポータブル(インストール不要)アプリにするためのアンパッケージ構成:
+      - WindowsPackageType=None        … MSIX 識別子を持たない通常の Win32 デスクトップ実行ファイル。
+                                          → Developer Mode 不要・MSIX インストール不要・winapp 不要。
+      - WindowsAppSDKSelfContained     … WindowsAppSDK ランタイムを同梱。配布先に何も入れずフォルダコピーで動く。
+      - EnableMsixTooling=false        … MSIX パッケージング機構を無効化。
+      - EnableWinAppRunSupport=false   … `dotnet run` を winapp 経由(パッケージ起動)にフックする機構を無効化し、素の exe 起動にする。
+    -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <EnableWinAppRunSupport>false</EnableWinAppRunSupport>
+
+    <!--
+      スリム化(ポータブル=ランタイム同梱は維持しつつ、不要物を削る):
+      - SatelliteResourceLanguages … 非英語のローカライズ・リソース(出力の af-ZA..zh-TW 等 約90フォルダ)を除外。
+      - InvariantGlobalization     … ICU(国際化データ)を同梱しない。本アプリは文化依存処理をしない。
+    -->
+    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    AppIcon.ico は二役: (1) <ApplicationIcon> として exe に埋め込み、(2) トレイアイコンとして実行時に
+    ファイル読み込みする(BitmapIconSource)。後者のため出力へコピーする。MSIX タイル用 PNG は不要なので同梱しない。
+  -->
+  <ItemGroup>
+    <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+
+  <!--
+    Microsoft.Windows.SDK.BuildTools.WinApp adds first-class support for
+    `dotnet run` on packaged WinUI apps: it hooks the .NET CLI Run target to
+    register a debug identity via the winapp CLI and launch the app with
+    package identity (AUMID).
+    Set <EnableWinAppRunSupport>false</EnableWinAppRunSupport> in a
+    <PropertyGroup> above to opt out.
+  -->
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.1">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Serilog" Version="4.3.1" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <!-- 同梱する打鍵音/ベル音。出力にコピーして AssetSoundBank が起動時に読み込む。 -->
+  <ItemGroup>
+    <Content Include="Assets\Sounds\*.wav" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TypingSound.Core\TypingSound.Core.csproj" />
+    <ProjectReference Include="..\TypingSound.Platform\TypingSound.Platform.csproj" />
+  </ItemGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!--
+    WindowsAppSDK が出力する各言語の MUI ローカライズ・フォルダ(ja-JP/zh-Hant/… 約90個)を除去する。
+    SatelliteResourceLanguages では消えない(WinAppSDK の .mui は .NET サテライトではない)ため、
+    ビルド/publish 後にカルチャ名のサブフォルダ(en* 以外)を削除する。本アプリは非ローカライズ。
+    Assets / Microsoft.UI.Xaml 等の非カルチャ名フォルダは正規表現に一致しないので保持される。
+  -->
+  <Target Name="RemoveLocalizedResourceDirs" AfterTargets="Build;Publish">
+    <!--
+      build は $(OutDir)、publish は $(PublishDir) と出力先が異なる。両方を掃除しないと
+      publish 成果物に言語フォルダが残る。存在するディレクトリだけ列挙する(未生成側は GetDirectories で例外になるため Exists で守る)。
+    -->
+    <ItemGroup Condition="Exists('$(OutDir)')">
+      <_OutSubdir Include="$([System.IO.Directory]::GetDirectories('$(OutDir)'))" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(PublishDir)' != '' And Exists('$(PublishDir)')">
+      <_OutSubdir Include="$([System.IO.Directory]::GetDirectories('$(PublishDir)'))" />
+    </ItemGroup>
+    <ItemGroup>
+      <_LocalizedDir Include="@(_OutSubdir)"
+                     Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Filename)', '^[a-z]{2,3}([-_][A-Za-z]+)*$')) And !$([System.String]::Copy('%(Filename)').StartsWith('en'))" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_LocalizedDir)" />
+    <Message Importance="high" Text="Removed @(_LocalizedDir->Count()) localized resource folders." />
+  </Target>
+
+  <!--
+    WindowsAppSDK self-contained が同梱する「このアプリでは決して使わない」重いアセンブリを除去する。
+    - Windows ML/AI 系: onnxruntime / DirectML (約40MB)。本アプリは ML を一切呼ばない。
+    - WinForms 一式: NAudio の NAudio.WinForms が参照を引っ張るが本アプリは未使用 (約23MB)。
+    - NAudio の未使用モジュール: WinForms/Asio/Midi。
+    起動時にロードされない(オンデマンド解決)ため削除して安全。万一不足が判明したら該当行を戻す。
+  -->
+  <Target Name="RemoveUnusedHeavyAssemblies" AfterTargets="Build;Publish">
+    <!-- build($(OutDir))・publish($(PublishDir)) の両方から削除する。Delete は存在しないファイルを無視する。 -->
+    <ItemGroup Condition="Exists('$(OutDir)')">
+      <_UnusedHeavyFile Include="
+        $(OutDir)onnxruntime.dll;
+        $(OutDir)onnxruntime_providers_shared.dll;
+        $(OutDir)Microsoft.ML.OnnxRuntime.dll;
+        $(OutDir)DirectML.dll;
+        $(OutDir)System.Windows.Forms.dll;
+        $(OutDir)System.Windows.Forms.Primitives.dll;
+        $(OutDir)System.Windows.Forms.Design.dll;
+        $(OutDir)System.Windows.Forms.Design.Editors.dll;
+        $(OutDir)NAudio.WinForms.dll;
+        $(OutDir)NAudio.Asio.dll;
+        $(OutDir)NAudio.Midi.dll" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(PublishDir)' != '' And Exists('$(PublishDir)')">
+      <_UnusedHeavyFile Include="
+        $(PublishDir)onnxruntime.dll;
+        $(PublishDir)onnxruntime_providers_shared.dll;
+        $(PublishDir)Microsoft.ML.OnnxRuntime.dll;
+        $(PublishDir)DirectML.dll;
+        $(PublishDir)System.Windows.Forms.dll;
+        $(PublishDir)System.Windows.Forms.Primitives.dll;
+        $(PublishDir)System.Windows.Forms.Design.dll;
+        $(PublishDir)System.Windows.Forms.Design.Editors.dll;
+        $(PublishDir)NAudio.WinForms.dll;
+        $(PublishDir)NAudio.Asio.dll;
+        $(PublishDir)NAudio.Midi.dll" />
+    </ItemGroup>
+    <Delete Files="@(_UnusedHeavyFile)" />
+    <Message Importance="high" Text="Removed unused heavy assemblies (ML / WinForms / unused NAudio modules)." />
+  </Target>
+
+  <!--
+    Publish 設定:
+    - PublishTrimmed=false 固定。WinUI / WindowsAppSDK はトリミング非対応で、フレームワーク側
+      (Microsoft.Windows.SDK.NET / WinRT.Runtime / NAudio)が IL2104 トリム警告を出す。本プロジェクトは
+      TreatWarningsAsErrors のためこれらがエラー化し publish が失敗する(NETSDK1144)。加えてトリミングは
+      XAML のリフレクション解決を壊し実行時に不安定になる。これは自コードの問題ではなくフレームワーク制約
+      なので、抑制(suppress)ではなく「トリミングしない」ことが根本対処。ゼロ抑制方針に整合する。
+    - PublishReadyToRun=false 固定。R2R はフレームワーク一式を事前ネイティブ化して起動を速める代償に
+      出力が大きく膨らむ。本アプリはログイン時に一度常駐するだけでコールド起動速度の重要度が低く、
+      「スリム」を優先して無効化する。起動速度が欲しければ publish 時に -p:PublishReadyToRun=true で上書き可。
+  -->
+  <PropertyGroup>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+</Project>

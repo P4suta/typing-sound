@@ -1,0 +1,6 @@
+# App(WinUI)プロジェクト固有のアナライザ調整。
+# WinUI の XAML 由来型(App / Window / Page 等)はソースジェネレーターが public partial として生成するため、
+# フレームワーク要件として public が必須であり internal にできない。CA1515 はこの制約を考慮しないため、
+# UI プロジェクトに限り無効化する(本体ロジックの品質規則は緩めない)。
+[*.cs]
+dotnet_diagnostic.CA1515.severity = none

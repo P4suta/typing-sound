@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "TypingSound.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "TypingSound.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

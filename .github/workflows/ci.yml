@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 同一ブランチの古い実行はキャンセルして無駄な並走を防ぐ。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # mise.toml に従って .NET SDK と just を導入する(ローカルと完全に同じバージョン)。
+      - name: Setup mise (dotnet + just)
+        uses: jdx/mise-action@v2
+
+      # ソリューション全体(App / Platform / Core / Launcher / Tests)をビルド。
+      # Directory.Build.props により警告はエラー扱いなので、ここがそのまま品質ゲートになる。
+      - name: Build (solution)
+        run: just build-all
+
+      # プラットフォーム非依存の Core 層ユニットテスト。
+      - name: Test (Core)
+        run: just test

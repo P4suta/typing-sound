@@ -1,0 +1,36 @@
+<Project>
+
+  <!--
+    全プロジェクト共通の品質設定。「最初から超厳格」方針。
+    - 警告はエラー扱い(妥協を溜めない)。
+    - .NET アナライザを最大(latest-all)で有効化。
+    - コードスタイル違反もビルドで検出(EnforceCodeStyleInBuild)。
+    - StyleCop / Roslynator を追加。conflict するスタイル規則は .editorconfig で個別に調整。
+    規則の重大度・有効/無効は .editorconfig に集約する(ここでは付けるだけ)。
+  -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+
+    <!-- 自動生成ファイル(*.g.cs / XAML 等)はアナライザ対象外にして誤検出を防ぐ。 -->
+    <GeneratedCodeAnalysisSeverity>None</GeneratedCodeAnalysisSeverity>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Roslynator.Analyzers" Version="4.12.9">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

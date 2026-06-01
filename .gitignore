@@ -1,0 +1,55 @@
+# =========================================================================
+#  TypingSound .gitignore
+#  .NET / Visual Studio のビルド成果物と配布物を除外する。
+#  ソースのみがコミットされる状態を保つ(公開リポジトリのため特に重要)。
+# =========================================================================
+
+## ビルド出力
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## 配布レイアウト(just dist の出力。CI/タグで再生成するためコミットしない)
+dist/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+*_i.c
+*_p.c
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+## MSBuild / NuGet
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nuget.props
+*.nuget.targets
+**/packages/*
+!**/packages/build/
+
+## テスト / カバレッジ
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
+*.trx
+
+## OS / エディタ
+.DS_Store
+Thumbs.db
+*~
+*.swp
+
+## ローカル専用の一時物
+*.log

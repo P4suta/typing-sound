@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="TypingSound.App/TypingSound.App.csproj" />
+  <Project Path="TypingSound.Core.Tests/TypingSound.Core.Tests.csproj" />
+  <Project Path="TypingSound.Core/TypingSound.Core.csproj" />
+  <Project Path="TypingSound.Launcher/TypingSound.Launcher.csproj" />
+  <Project Path="TypingSound.Platform/TypingSound.Platform.csproj" />
+</Solution>

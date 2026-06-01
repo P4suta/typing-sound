@@ -1,0 +1,46 @@
+name: Release
+
+# v* タグを push するとポータブル配布物をビルドして GitHub Release を作成する。
+# 例: git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # Release の作成 / アセットのアップロードに必要。
+
+jobs:
+  dist:
+    name: Build portable dist (${{ matrix.arch }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      # アーキテクチャを増やすときはここに "arm64" / "x86" を足すだけ。
+      matrix:
+        arch: [x64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup mise (dotnet + just)
+        uses: jdx/mise-action@v2
+
+      # 配布レイアウト dist/TypingSound/{TypingSound.exe, app/} を作る(self-contained)。
+      - name: Build dist
+        run: just dist ${{ matrix.arch }}
+
+      # フォルダをそのまま zip 化。展開して TypingSound.exe を起動するだけで動く。
+      - name: Package zip
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $zip = "TypingSound-$version-win-${{ matrix.arch }}.zip"
+          Compress-Archive -Path dist/TypingSound/* -DestinationPath $zip -Force
+          "ASSET=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true

@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # NuGet パッケージの更新 PR を週次で作成。
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # 関連パッケージはまとめて 1 PR にして粒度を整える。
+      serilog:
+        patterns: ["Serilog*"]
+      analyzers:
+        patterns: ["StyleCop.Analyzers", "Roslynator.*"]
+
+  # GitHub Actions の更新 PR を週次で作成。
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
