@@ -40,8 +40,8 @@ BundleArtifacts/
 
 # Publish output
 publish/
-*.pubxml
 PublishScripts/
+# 注: *.pubxml(publish profile)は配布ビルドの出力パスを規定するソースなので追跡する。
 
 # Code analysis and tooling
 _ReSharper*/
