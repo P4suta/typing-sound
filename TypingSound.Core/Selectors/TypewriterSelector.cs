@@ -3,18 +3,18 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Core.Selectors;
 
 /// <summary>
-/// タイプライター風にキー種別で出し分けるセレクタ。
-/// Enter(復帰)では復帰ベルを、それ以外のキーでは打鍵音セレクタに委譲する。
-/// 打鍵音の選び方(ランダム / 重複なし 等)は委譲先セレクタに任せ、ここは出し分けだけを担う(合成)。
+/// Typewriter-style selector that dispatches by key category: Enter (return) plays the return bell,
+/// other keys delegate to the keystroke selector. How keystrokes are chosen (random, no-repeat, etc.)
+/// is left to the delegate; this class only does the dispatch.
 /// </summary>
 public sealed class TypewriterSelector : ISoundSelector
 {
     private readonly ISoundSelector _keystrokeSelector;
     private readonly ISoundClip? _returnBell;
 
-    /// <summary>打鍵音セレクタと復帰ベルを指定して生成する。</summary>
-    /// <param name="keystrokeSelector">一般キーで使う打鍵音セレクタ。</param>
-    /// <param name="returnBell">Enter で鳴らす復帰ベル(<see langword="null"/> なら Enter は無音)。</param>
+    /// <summary>Creates the selector with a keystroke selector and a return bell.</summary>
+    /// <param name="keystrokeSelector">Keystroke selector used for general keys.</param>
+    /// <param name="returnBell">Return bell played on Enter (<see langword="null"/> means Enter is silent).</param>
     public TypewriterSelector(ISoundSelector keystrokeSelector, ISoundClip? returnBell)
     {
         ArgumentNullException.ThrowIfNull(keystrokeSelector);

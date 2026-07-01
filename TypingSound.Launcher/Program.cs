@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 namespace TypingSoundLauncher;
 
 /// <summary>
-/// 配布レイアウトの入口。隣の <c>app\</c> サブフォルダにある本体(WinUI アプリ)を起動して即終了する。
-/// ランタイム同梱で多数になる本体一式を <c>app\</c> に押し込み、利用者には起動 exe だけを見せるためのドア。
-/// 本体側の機能(トレイ/フック/音)は一切持たない。
+/// Entry point of the distribution layout. Launches the main app (WinUI) in the adjacent <c>app\</c> subfolder and exits immediately.
+/// Pushes the many self-contained runtime files of the main app into <c>app\</c> so users see only the launcher exe.
+/// Holds none of the main app's features (tray/hook/sound).
 /// </summary>
 internal static class Program
 {
@@ -17,11 +17,11 @@ internal static class Program
         string appDir = Path.Combine(AppContext.BaseDirectory, "app");
         string target = Path.Combine(appDir, "TypingSound.App.exe");
 
-        // 起動失敗は例外フィルタ内でダイアログ表示し true を返して握りつぶす(境界で CA1031 を正規に満たす)。
-        // 入口 exe は無言で死ぬと原因が分からないため、失敗時は必ず可視化する。
+        // On launch failure, show a dialog in the exception filter and return true to swallow (satisfies CA1031 at the boundary).
+        // The launcher exe dying silently gives no clue why, so always surface failures.
         static bool ShowAndSwallow(Exception ex)
         {
-            _ = MessageBoxW(0, $"本体を起動できませんでした。\n{ex.Message}", "TypingSound", MbIconError);
+            _ = MessageBoxW(0, $"Could not start the application.\n{ex.Message}", "TypingSound", MbIconError);
             return true;
         }
 

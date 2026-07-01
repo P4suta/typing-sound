@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Win32 フック(P/Invoke)と NAudio(WASAPI)を使うため Windows 向け。WinUI には依存しない。 -->
+    <!-- Windows-targeted for Win32 hooks (P/Invoke) and NAudio (WASAPI); no WinUI dependency. -->
     <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

@@ -4,7 +4,7 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSound.Platform.Audio;
 
-/// <summary>ミキサーに投入された 1 音への操作ハンドル。<see cref="Stop"/> でミキサーから取り除く。</summary>
+/// <summary>Handle to a single sound submitted to the mixer. <see cref="Halt"/> removes it from the mixer.</summary>
 internal sealed class MixerPlayingSound : IPlayingSound
 {
     private readonly MixingSampleProvider _mixer;

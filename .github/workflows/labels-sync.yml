@@ -1,9 +1,8 @@
-# リポジトリのラベルを .github/labels.json(唯一の真実) から突き合わせ、名前/色/説明を版管理する
-# (手作業で設定しない)。manifest が変わった時 / 手動でのみ動く。
-#
-# 敢えて gh + jq(どちらもランナーに同梱)で行い、labeler action は使わない: サードパーティを増やすと
-# 信頼面が広がる。gh label create --force は作成 or 更新で削除はしないので、同期は加算的 — manifest に
-# 無いラベル(GitHub 既定や将来のツール用)はそのまま残る。
+# Version-controls repo labels (name/color/description) from .github/labels.json, the
+# single source of truth. Uses gh + jq (both on the runner) rather than a third-party
+# labeler action to avoid widening the trust surface. Runs on manifest change / manually.
+# gh label create --force is additive (create-or-update, never deletes), so labels absent
+# from the manifest (GitHub defaults, future tools) are left intact.
 name: labels-sync
 
 on:
@@ -20,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read # manifest を checkout(ジョブ perms はトップを置換するので明示)
-      issues: write # ラベルの作成/更新
+      contents: read # checkout the manifest (job perms replace the top level, so explicit)
+      issues: write # create/update labels
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Sync labels from manifest (additive; never deletes)
@@ -32,7 +31,7 @@ jobs:
           jq -c '.[]' .github/labels.json | while IFS= read -r row; do
             name=$(jq -r '.name' <<<"$row")
             color=$(jq -r '.color' <<<"$row")
-            # GitHub はラベル説明を 100 文字までに制限。念のため切り詰める。
+            # GitHub caps label descriptions at 100 chars; truncate to be safe.
             desc=$(jq -r '.description' <<<"$row")
             desc=${desc:0:100}
             echo "syncing: $name"

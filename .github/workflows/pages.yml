@@ -1,6 +1,6 @@
 name: Deploy Pages
 
-# docs/ のランディングページを GitHub Pages へデプロイする。
+# Deploy the docs/ landing page to GitHub Pages.
 on:
   push:
     branches: [main]
@@ -14,7 +14,7 @@ permissions:
   pages: write
   id-token: write
 
-# 進行中のデプロイは保護しつつ、キューは 1 本に絞る。
+# Protect an in-progress deploy; keep the queue to one.
 concurrency:
   group: pages
   cancel-in-progress: false

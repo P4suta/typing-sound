@@ -5,8 +5,8 @@ using Serilog.Events;
 namespace TypingSoundApp.Diagnostics;
 
 /// <summary>
-/// 直近 <see cref="Capacity"/> 件の整形済みログ文字列をスレッドセーフに保持する Serilog シンク。
-/// 診断 UI などから <see cref="Snapshot"/> でスナップショットを取得して表示する用途を想定する。
+/// Serilog sink that thread-safely retains the most recent <see cref="Capacity"/> formatted log
+/// strings. Intended for display via <see cref="Snapshot"/>, e.g. from a diagnostics UI.
 /// </summary>
 internal sealed class RingBufferSink : ILogEventSink
 {

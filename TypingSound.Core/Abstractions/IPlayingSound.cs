@@ -1,8 +1,8 @@
 namespace TypingSound.Core.Abstractions;
 
-/// <summary>再生中の 1 音への操作ハンドル。</summary>
+/// <summary>Handle to a single playing sound.</summary>
 public interface IPlayingSound
 {
-    /// <summary>この音の再生を直ちに止める(モノフォニックの「直前を止める」用)。</summary>
+    /// <summary>Stops this sound immediately (used by the monophonic "stop the previous" behavior).</summary>
     void Halt();
 }

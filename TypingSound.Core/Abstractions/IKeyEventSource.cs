@@ -1,17 +1,18 @@
 namespace TypingSound.Core.Abstractions;
 
 /// <summary>
-/// グローバルなキー押下イベントの供給元。<b>キーの値は通知しない</b>(押下という事実だけ)。
-/// 実装(Platform 層)は低レベルキーボードフックを用い、コールバックは即 return する。
+/// Source of global key-press events. <b>The key value is never reported</b> (only the fact that a
+/// key was pressed). Implementations (Platform layer) use a low-level keyboard hook and the callback
+/// returns immediately.
 /// </summary>
 public interface IKeyEventSource : IDisposable
 {
-    /// <summary>キーが押されたときに発火する(分類のみ伴い、キーの具体値は伴わない)。</summary>
+    /// <summary>Raised when a key is pressed (carries only the classification, not the key value).</summary>
     event EventHandler<KeyPressedEventArgs>? KeyPressed;
 
-    /// <summary>フックを開始する。UI スレッド(メッセージポンプあり)で呼ぶこと。</summary>
+    /// <summary>Starts the hook. Call on the UI thread (which has a message pump).</summary>
     void Start();
 
-    /// <summary>フックを停止する。</summary>
+    /// <summary>Stops the hook.</summary>
     void StopListening();
 }

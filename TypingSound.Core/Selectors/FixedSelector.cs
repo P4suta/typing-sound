@@ -2,13 +2,12 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSound.Core.Selectors;
 
-/// <summary>常に同じクリップを返すセレクタ(「最後だけ」の return ベル等)。</summary>
+/// <summary>Selector that always returns the same clip (e.g. the "last only" return bell).</summary>
 public sealed class FixedSelector : ISoundSelector
 {
     private readonly ISoundClip? _clip;
 
-    /// <summary>固定で返すクリップを指定して生成する(<see langword="null"/> なら常に無音)。</summary>
-    /// <param name="clip">常に返すクリップ。</param>
+    /// <summary>Creates the selector with the fixed clip to return (<see langword="null"/> means always silent).</summary>
     public FixedSelector(ISoundClip? clip) => _clip = clip;
 
     /// <inheritdoc/>

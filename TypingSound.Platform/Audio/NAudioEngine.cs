@@ -8,12 +8,13 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Platform.Audio;
 
 /// <summary>
-/// NAudio(WASAPI 共有モード)による <see cref="IAudioEngine"/> 実装。
-/// デバイスを 1 つだけ開きっぱなしにし、押下ごとにミキサーへ入力を足す(低遅延・重ね再生)。
-/// 共有モードはリサンプルしないため、ミキサーの内部形式は <see cref="OutputFormat"/>(起動時の既定デバイスの
-/// ミックス形式)に固定し、クリップ側をその形式へ変換して読み込む(<see cref="AssetSoundBank"/>)。
-/// 既定の再生デバイスが切り替わった(イヤホン接続等)場合は、ミキサーは保ったまま <see cref="WasapiOut"/> だけを
-/// 新デバイスへ作り直して追従する。新デバイスのミックス形式が固定形式と異なる場合は WasapiOut が内部でリサンプルする。
+/// <see cref="IAudioEngine"/> implementation over NAudio (WASAPI shared mode).
+/// Keeps a single device open and adds an input to the mixer per key press (low latency, overlapping playback).
+/// Shared mode does not resample, so the mixer's internal format is fixed to <see cref="OutputFormat"/> (the mix
+/// format of the default device at startup) and clips are converted to that format on load (<see cref="AssetSoundBank"/>).
+/// When the default render device changes (e.g. headphones plugged in) the mixer is kept and only the
+/// <see cref="WasapiOut"/> is recreated on the new device. If the new device's mix format differs from the fixed
+/// format, WasapiOut resamples internally.
 /// </summary>
 public sealed partial class NAudioEngine : IAudioEngine, IDisposable
 {
@@ -22,8 +23,8 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
     private readonly DeviceChangeNotificationClient _notificationClient;
     private readonly MixingSampleProvider _mixer;
 
-    // _output / _currentDevice / _currentDeviceId / _disposed はこのロックで直列化する。
-    // デバイス変更ハンドラ(別スレッド)と Dispose の競合を防ぐ。Play は _mixer(スレッドセーフ)しか触らずロック不要。
+    // This lock serializes _output / _currentDevice / _currentDeviceId / _disposed, preventing races between the
+    // device-change handler (background thread) and Dispose. Play only touches _mixer (thread-safe) and needs no lock.
     private readonly object _outputLock = new();
     private WasapiOut? _output;
     private MMDevice? _currentDevice;
@@ -46,7 +47,7 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
         OutputFormat = WaveFormat.CreateIeeeFloatWaveFormat(mixFormat.SampleRate, mixFormat.Channels);
         _mixer = new MixingSampleProvider(OutputFormat) { ReadFully = true };
 
-        // 起動時はデバイスが無ければ素直に失敗させる(従来挙動)。デバイス変更時の作り直しのみ握りつぶす。
+        // At startup fail outright if there is no device; only the recreate on device change swallows errors.
         lock (_outputLock)
         {
             StartOutputOnDefaultDevice();
@@ -58,7 +59,7 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
         LogAudioOutput(_logger, OutputFormat.SampleRate, OutputFormat.Channels, OutputFormat.Encoding);
     }
 
-    /// <summary>出力ミキサーの形式(クリップはこの形式へ変換して読み込む)。デバイスが変わっても不変。</summary>
+    /// <summary>Output mixer format (clips are converted to this format on load). Unchanged across device changes.</summary>
     public WaveFormat OutputFormat { get; }
 
     /// <inheritdoc/>
@@ -67,10 +68,11 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
         ArgumentNullException.ThrowIfNull(clip);
         if (clip is not CachedSound cached)
         {
-            throw new ArgumentException($"{nameof(NAudioEngine)} は {nameof(CachedSound)} のみ再生できます。", nameof(clip));
+            throw new ArgumentException($"{nameof(NAudioEngine)} can only play {nameof(CachedSound)}.", nameof(clip));
         }
 
-        // _mixer は AddMixerInput/Read とも内部ロックを持つためスレッドセーフ。出力の作り直し中でも安全に積める。
+        // _mixer is thread-safe (AddMixerInput/Read both lock internally), so inputs can be added safely even while
+        // the output is being recreated.
         CachedSoundSampleProvider provider = new(cached);
         _mixer.AddMixerInput(provider);
         return new MixerPlayingSound(_mixer, provider);
@@ -88,7 +90,7 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
 
             _disposed = true;
 
-            // 先に通知を止める。以降に走り出すデバイス変更タスクはロック取得後 _disposed を見て即抜ける。
+            // Stop notifications first; any device-change task that starts afterward sees _disposed after taking the lock and returns.
             UnregisterNotifications();
             TeardownOutput();
             _enumerator.Dispose();
@@ -112,7 +114,7 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
     [LoggerMessage(Level = LogLevel.Warning, Message = "failed to unregister audio device notifications")]
     private static partial void LogUnregisterFailed(ILogger logger, Exception ex);
 
-    // ロック内で呼ぶこと。既定の再生デバイス(Multimedia)へ WasapiOut を新規生成して再生開始する。
+    // Call under the lock. Creates a new WasapiOut on the default render device (Multimedia) and starts playback.
     private void StartOutputOnDefaultDevice()
     {
         MMDevice device = _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
@@ -125,7 +127,7 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
         _currentDeviceId = device.ID;
     }
 
-    // ロック内で呼ぶこと。デバイス消失時(イヤホン抜去等)は停止/破棄が例外を投げうるので握りつぶす。
+    // Call under the lock. On device loss (e.g. headphones unplugged) stop/dispose may throw, so swallow (CA1031).
     private void TeardownOutput()
     {
         static bool LogAndSwallow(ILogger logger, Exception ex)
@@ -142,7 +144,6 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
         }
         catch (Exception ex) when (LogAndSwallow(_logger, ex))
         {
-            // 例外はフィルタ内でログ済み。作り直しを止めないため握りつぶす。
         }
         finally
         {
@@ -166,11 +167,10 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
         }
         catch (Exception ex) when (LogAndSwallow(_logger, ex))
         {
-            // 解除失敗は致命ではない。ログして続行する。
         }
     }
 
-    // 既定デバイス変更通知から別スレッドで呼ばれる(コールバック内からデバイス API を呼ぶとデッドロックしうるため)。
+    // Called on a background thread from the default-device-change notification (calling device APIs inside the COM callback can deadlock).
     private void RefreshOutputDevice(string? newDefaultDeviceId)
     {
         static bool LogAndSwallow(ILogger logger, Exception ex)
@@ -186,7 +186,7 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
                 return;
             }
 
-            // 同一デバイスへの変更通知(複数ロール由来の重複イベント等)は無視する。
+            // Ignore change notifications for the same device (e.g. duplicate events from multiple roles).
             if (newDefaultDeviceId is not null && newDefaultDeviceId == _currentDeviceId)
             {
                 return;
@@ -201,18 +201,18 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
             }
             catch (Exception ex) when (LogAndSwallow(_logger, ex))
             {
-                // 利用可能なデバイスが無い等。次の変更通知で再度作り直しを試みる。
+                // No available device, etc. The next change notification retries the recreate.
             }
         }
     }
 
-    // 通知コールバックから呼ばれる。コールバックを即座に返すため、実際の作り直しは別スレッドへ逃がす。
+    // Called from the notification callback. Offloads the actual recreate to a background thread so the callback returns immediately.
     private void OnDefaultRenderDeviceChanged(string? defaultDeviceId) =>
         _ = Task.Run(() => RefreshOutputDevice(defaultDeviceId));
 
     /// <summary>
-    /// 既定の再生デバイス変更を監視し、Render/Multimedia の既定が変わったらエンジンへ作り直しを依頼する。
-    /// COM コールバック内ではデバイス API を呼ばず、エンジン側で別スレッドへ逃がす(デッドロック回避)。
+    /// Watches for default render device changes and asks the engine to recreate when the Render/Multimedia default changes.
+    /// Does not call device APIs inside the COM callback; the engine offloads to a background thread (deadlock avoidance).
     /// </summary>
     private sealed class DeviceChangeNotificationClient(NAudioEngine engine) : IMMNotificationClient
     {
@@ -226,22 +226,18 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
 
         public void OnDeviceStateChanged(string deviceId, DeviceState newState)
         {
-            // 関心なし。
         }
 
         public void OnDeviceAdded(string pwstrDeviceId)
         {
-            // 関心なし。
         }
 
         public void OnDeviceRemoved(string deviceId)
         {
-            // 関心なし。
         }
 
         public void OnPropertyValueChanged(string pwstrDeviceId, PropertyKey key)
         {
-            // 関心なし。
         }
     }
 }

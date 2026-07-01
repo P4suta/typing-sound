@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for filing a bug. Logs help a lot. typing-sound is portable, so it
         writes its logs next to the executable — open the folder from the tray
-        icon menu (**ログフォルダを開く** / "Open log folder"), or look in the
+        icon menu (**Open log folder**), or look in the
         `logs\` folder beside `TypingSound.exe` for `typingsound-YYYYMMDD.log`.
   - type: textarea
     id: what-happened

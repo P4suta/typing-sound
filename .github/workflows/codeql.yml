@@ -1,13 +1,7 @@
-# C# アプリと GitHub Actions ワークフロー自体の静的解析。
-#
-# 2 つの独立解析:
-#   - csharp (analyze): build-mode manual。純 C# でネイティブ依存が無いので mise の固定 SDK で
-#     `just build-all` を走らせて C# ビルドをトレースする(autobuild でも通るが、CI と同じ正確な
-#     ピンでビルドするため manual にする)。
-#   - actions (analyze-actions): build-mode none、安価な ubuntu。ワークフローの GITHUB_TOKEN 権限や
-#     untrusted-input パターンを継続的に再チェックし、権限不足クラスが黙って戻らないようにする。
-#
-# `analyze` ジョブのチェックは分岐保護の必須ステータス(.github/rulesets/ 参照)。
+# CodeQL static analysis of the C# app and the workflows themselves. Two analyses:
+# csharp (analyze) uses build-mode manual — `just build-all` with mise's pinned SDK builds
+# with the same pins as CI (autobuild would also work); actions (analyze-actions) uses
+# build-mode none on cheap ubuntu. The `analyze` job is a required status check (.github/rulesets/).
 name: codeql
 
 on:
@@ -18,8 +12,8 @@ on:
   schedule:
     - cron: "23 4 * * 1"
 
-# 最小権限: トップは read-only。各ジョブが SARIF アップロードに要る security-events: write だけ要求
-# (Scorecard の Token-Permissions はジョブ単位の write を評価する)。
+# Top level read-only; each job requests only the security-events: write it needs for
+# SARIF upload (Scorecard's Token-Permissions scores per-job write).
 permissions:
   contents: read
 
@@ -27,12 +21,12 @@ jobs:
   analyze:
     runs-on: windows-latest
     permissions:
-      security-events: write # CodeQL SARIF のアップロード
-      contents: read # checkout
+      security-events: write
+      contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      # mise.toml の固定バージョンで dotnet / just を用意(ローカル/CI と完全一致)。
+      # Pinned dotnet / just from mise.toml (exact match with local/CI).
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           install: true
@@ -49,14 +43,14 @@ jobs:
         with:
           category: "/language:csharp"
 
-  # ワークフロー YAML 自体(GITHUB_TOKEN 権限、untrusted-input 等)を解析。build-mode none は
-  # toolchain 不要なので安価な ubuntu で動かす。
+  # Analyze the workflow YAML itself (GITHUB_TOKEN perms, untrusted-input, etc.).
+  # build-mode none needs no toolchain, so run on cheap ubuntu.
   analyze-actions:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      security-events: write # CodeQL SARIF のアップロード
-      contents: read # checkout
+      security-events: write
+      contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2

@@ -1,10 +1,9 @@
 namespace TypingSound.Core.Modes;
 
-/// <summary>Alpha で既定提供するモードを生成するファクトリ。</summary>
+/// <summary>Factory for the modes shipped by default in Alpha.</summary>
 public static class DefaultModeSet
 {
-    /// <summary>音源カタログから既定モード(タイプライター)を作る。先頭が既定。</summary>
-    /// <param name="catalog">打鍵プールと return ベルを保持するカタログ。</param>
+    /// <summary>Builds the default modes (Typewriter) from a sound catalog; the first is the default.</summary>
     public static IReadOnlyList<ISoundMode> Create(SoundCatalog catalog)
     {
         ArgumentNullException.ThrowIfNull(catalog);

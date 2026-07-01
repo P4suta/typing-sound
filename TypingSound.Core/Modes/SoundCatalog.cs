@@ -3,9 +3,10 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Core.Modes;
 
 /// <summary>
-/// 意味づけされたクリップ選択。合成ルートが音源(<see cref="ISoundBank"/>)から組み立て、
-/// 既定モード群へ渡す。「打鍵プール」と「return ベル」という役割で分ける。
+/// Semantically labeled clip selection, assembled by the composition root from an
+/// <see cref="ISoundBank"/> and passed to the default modes. Split into the roles "keystroke pool"
+/// and "return bell".
 /// </summary>
-/// <param name="TypingClips">毎キーで鳴らす打鍵音のプール。</param>
-/// <param name="ReturnBell">「最後だけ」で鳴らす return ベル(無ければ <see langword="null"/>)。</param>
+/// <param name="TypingClips">Pool of keystroke sounds played on every key.</param>
+/// <param name="ReturnBell">Return bell played on "last only" (<see langword="null"/> if none).</param>
 public sealed record SoundCatalog(IReadOnlyList<ISoundClip> TypingClips, ISoundClip? ReturnBell);

@@ -3,19 +3,18 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Core.Triggers;
 
 /// <summary>
-/// 軸A:「いつ音を鳴らすか」を決めるステートフルな戦略。
-/// キー押下を <see cref="Notify"/> で受け取り、鳴らすべき瞬間に <see cref="Fired"/> を発火する。
-/// 実装は単一スレッド(UI スレッド)から呼ばれる前提で書かれ、ロックを持たない。
+/// Axis A: stateful strategy deciding "when to play". Receives key presses via <see cref="Notify"/>
+/// and raises <see cref="Fired"/> at the moment a sound should play. Implementations assume they are
+/// called from a single (UI) thread and hold no locks.
 /// </summary>
 public interface ITriggerStrategy : IDisposable
 {
     /// <summary>
-    /// 鳴らす意図が確定したときに発火する(購読者は 1 つを想定)。
-    /// 引数に発火の契機となったキー分類を運び、セレクタがキー種別で出し分けできるようにする。
+    /// Raised when the intent to play is confirmed (a single subscriber is assumed). Carries the key
+    /// category that triggered it so the selector can dispatch by key type.
     /// </summary>
     event EventHandler<KeyPressedEventArgs>? Fired;
 
-    /// <summary>キーが 1 つ押されたことを通知する。キーに依らない戦略は <paramref name="category"/> を無視してよい。</summary>
-    /// <param name="category">押下キーの分類。</param>
+    /// <summary>Notifies that a single key was pressed; key-agnostic strategies may ignore <paramref name="category"/>.</summary>
     void Notify(KeyCategory category);
 }

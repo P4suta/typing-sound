@@ -5,9 +5,9 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Platform.Audio;
 
 /// <summary>
-/// ディレクトリ内の WAV をすべてメモリへ常駐ロードする <see cref="ISoundBank"/>。
-/// クリップ Id はファイル名(拡張子なし)。読み込みは出力デバイス形式へ変換する。
-/// 個々のファイルの読み込み失敗は致命ではなく、スキップして読み込めた分だけ返す。
+/// <see cref="ISoundBank"/> that loads every WAV in a directory fully into memory.
+/// Clip Id is the file name without extension. Files are converted to the output device format on load.
+/// A single file's load failure is non-fatal: it is skipped and only the files that loaded are returned.
 /// </summary>
 public sealed partial class AssetSoundBank : ISoundBank
 {
@@ -27,11 +27,11 @@ public sealed partial class AssetSoundBank : ISoundBank
     public IReadOnlyList<ISoundClip> Clips { get; }
 
     /// <summary>
-    /// ディレクトリ内の *.wav を読み込んでバンクを作る。失敗したファイルはログに記録してスキップする。
+    /// Loads *.wav from the directory into a bank. Failed files are logged and skipped.
     /// </summary>
-    /// <param name="directory">WAV を含むディレクトリ。</param>
-    /// <param name="targetFormat">変換先の出力デバイス形式。</param>
-    /// <param name="logger">読み込み失敗・件数を記録するロガー。</param>
+    /// <param name="directory">Directory containing the WAV files.</param>
+    /// <param name="targetFormat">Target output device format to convert to.</param>
+    /// <param name="logger">Logger for load failures and counts.</param>
     public static AssetSoundBank LoadFromDirectory(string directory, WaveFormat targetFormat, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(directory);
@@ -40,8 +40,7 @@ public sealed partial class AssetSoundBank : ISoundBank
 
         List<ISoundClip> clips = [];
 
-        // 例外フィルタ内でログし true を返すことで、1 ファイルの失敗で全体を止めない(劣化継続)。
-        // CA1031 をフィルタ付き catch で正規に満たす。
+        // Log in the exception filter and return true so one file's failure doesn't stop the rest (CA1031).
         static bool LogAndSwallow(ILogger logger, string file, Exception ex)
         {
             LogLoadFailed(logger, ex, file);
@@ -59,7 +58,6 @@ public sealed partial class AssetSoundBank : ISoundBank
                 }
                 catch (Exception ex) when (LogAndSwallow(logger, Path.GetFileName(path), ex))
                 {
-                    // 例外はフィルタ内でログ済み。読めたファイルだけで続行する。
                 }
             }
         }

@@ -1,9 +1,9 @@
 namespace TypingSound.Core.Abstractions;
 
-/// <summary>乱数の供給元の抽象(テストで決定的にするため注入する)。</summary>
+/// <summary>Abstraction over a random source (injected to make tests deterministic).</summary>
 public interface IRandomSource
 {
-    /// <summary>0 以上 <paramref name="maxExclusive"/> 未満の整数を返す。</summary>
-    /// <param name="maxExclusive">上限(この値自身は含まない)。1 以上であること。</param>
+    /// <summary>Returns an integer in [0, <paramref name="maxExclusive"/>).</summary>
+    /// <param name="maxExclusive">Exclusive upper bound; must be at least 1.</param>
     int NextBelow(int maxExclusive);
 }

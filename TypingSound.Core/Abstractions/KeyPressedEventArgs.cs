@@ -1,23 +1,21 @@
 namespace TypingSound.Core.Abstractions;
 
-/// <summary>キー押下イベントの引数。押下キーの<see cref="KeyCategory">分類</see>のみを伴う。</summary>
+/// <summary>Arguments for a key-press event; carries only the <see cref="KeyCategory">classification</see>.</summary>
 public sealed class KeyPressedEventArgs : EventArgs
 {
-    /// <summary><see cref="KeyCategory.Other"/> 用の共有インスタンス(押下ごとの確保を避ける)。</summary>
+    /// <summary>Shared instance for <see cref="KeyCategory.Other"/> (avoids per-press allocation).</summary>
     public static readonly KeyPressedEventArgs Other = new(KeyCategory.Other);
 
-    /// <summary><see cref="KeyCategory.Enter"/> 用の共有インスタンス。</summary>
+    /// <summary>Shared instance for <see cref="KeyCategory.Enter"/>.</summary>
     public static readonly KeyPressedEventArgs Enter = new(KeyCategory.Enter);
 
-    /// <summary>分類を指定して生成する。</summary>
-    /// <param name="category">押下キーの分類。</param>
+    /// <summary>Creates an instance for the given classification.</summary>
     public KeyPressedEventArgs(KeyCategory category) => Category = category;
 
-    /// <summary>押下キーの分類。</summary>
+    /// <summary>Classification of the pressed key.</summary>
     public KeyCategory Category { get; }
 
-    /// <summary>分類に対応する共有インスタンスを返す(押下ごとの確保を避ける)。</summary>
-    /// <param name="category">押下キーの分類。</param>
+    /// <summary>Returns the shared instance for the classification (avoids per-press allocation).</summary>
     public static KeyPressedEventArgs For(KeyCategory category) =>
         category == KeyCategory.Enter ? Enter : Other;
 }

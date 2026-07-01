@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- 純粋・プラットフォーム非依存。ここがアーキテクチャの中核なので公開 API には XML ドキュメントを必須化する。 -->
+    <!-- Pure, platform-agnostic core; require XML docs on the public API. -->
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

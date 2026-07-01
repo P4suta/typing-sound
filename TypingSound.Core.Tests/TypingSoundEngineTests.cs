@@ -155,7 +155,7 @@ public class TypingSoundEngineTests
         public SoundModeContext Context { get; }
     }
 
-    /// <summary>静止後に一度だけ固定クリップを鳴らす、デバウンス検証専用のモード。</summary>
+    /// <summary>Debounce-only test mode that plays a fixed clip once after input goes quiet.</summary>
     private sealed class DebounceMode : ISoundMode
     {
         private readonly ISoundClip _clip;
@@ -169,7 +169,7 @@ public class TypingSoundEngineTests
 
         public string Id => "test-debounce";
 
-        public string DisplayName => "テスト用デバウンス";
+        public string DisplayName => "Test Debounce";
 
         public IActiveMode Activate(SoundModeContext context) =>
             new SoundModePipeline(
@@ -178,7 +178,7 @@ public class TypingSoundEngineTests
                 new PolyphonicPolicy(context.Audio));
     }
 
-    /// <summary>毎キーで与えたクリップを巡回再生する、エンジン検証専用のモード(実モードに依存しない)。</summary>
+    /// <summary>Engine-only test mode that cycles through the given clips on every key (no dependency on real modes).</summary>
     private sealed class EveryKeyTestMode : ISoundMode
     {
         private readonly IReadOnlyList<ISoundClip> _clips;
@@ -187,7 +187,7 @@ public class TypingSoundEngineTests
 
         public string Id => "test-every-key";
 
-        public string DisplayName => "テスト用毎キー";
+        public string DisplayName => "Test Every Key";
 
         public IActiveMode Activate(SoundModeContext context) =>
             new SoundModePipeline(

@@ -3,9 +3,9 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Core.Selectors;
 
 /// <summary>
-/// 重複なしで一巡し、尽きたら再シャッフルして無限ループするセレクタ(「重複なしでループし続ける」)。
-/// 再シャッフル時、直前に鳴らしたクリップが新しい一巡の先頭に来ないようにして、
-/// ループ境界での連続重複(同じ音が 2 回続けて鳴る)を防ぐ。
+/// Selector that cycles through all clips without repeats, reshuffling when exhausted to loop
+/// forever. On reshuffle, the clip played last is kept off the front of the new cycle to avoid a
+/// back-to-back repeat (the same sound playing twice in a row) at the loop boundary.
 /// </summary>
 public sealed class ShuffleQueueSelector : ISoundSelector
 {
@@ -14,9 +14,7 @@ public sealed class ShuffleQueueSelector : ISoundSelector
     private readonly Queue<ISoundClip> _queue = new();
     private ISoundClip? _lastPlayed;
 
-    /// <summary>選択対象のクリップ群と乱数source を指定して生成する。</summary>
-    /// <param name="clips">一巡の対象となるクリップ群。</param>
-    /// <param name="random">シャッフルに使う乱数source。</param>
+    /// <summary>Creates the selector with a set of clips and a random source.</summary>
     public ShuffleQueueSelector(IReadOnlyList<ISoundClip> clips, IRandomSource random)
     {
         ArgumentNullException.ThrowIfNull(clips);
@@ -47,14 +45,14 @@ public sealed class ShuffleQueueSelector : ISoundSelector
     {
         List<ISoundClip> shuffled = [.. _clips];
 
-        // Fisher-Yates シャッフル。
+        // Fisher-Yates shuffle.
         for (int i = shuffled.Count - 1; i > 0; i--)
         {
             int j = _random.NextBelow(i + 1);
             (shuffled[i], shuffled[j]) = (shuffled[j], shuffled[i]);
         }
 
-        // ループ境界の連続重複回避: 新しい一巡の先頭が直前再生クリップなら 2 番目と入れ替える。
+        // Avoid boundary repeat: if the new cycle starts with the last-played clip, swap it with the second.
         if (shuffled.Count > 1 && ReferenceEquals(shuffled[0], _lastPlayed))
         {
             (shuffled[0], shuffled[1]) = (shuffled[1], shuffled[0]);

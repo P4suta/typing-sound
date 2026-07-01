@@ -1,8 +1,8 @@
 namespace TypingSound.Core.Abstractions;
 
-/// <summary><see cref="ISoundTimer"/> を生成するファクトリ。</summary>
+/// <summary>Factory that creates <see cref="ISoundTimer"/> instances.</summary>
 public interface ITimerFactory
 {
-    /// <summary>新しい単発タイマーを生成する。</summary>
+    /// <summary>Creates a new one-shot timer.</summary>
     ISoundTimer Create();
 }

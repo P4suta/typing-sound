@@ -1,5 +1,4 @@
-# taplo(TOML フォーマッタ)の設定。手書きの TOML(mise.toml / committed.toml / これ自身)の
-# 整形を統一する。生成物は除外。
+# taplo (TOML formatter) config; formats hand-written TOML, excludes generated output.
 exclude = ["dist/**", "build/**"]
 
 [formatting]

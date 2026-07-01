@@ -2,7 +2,7 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSound.Core.Tests.Fakes;
 
-/// <summary>テスト用の音声エンジン。Play されたクリップ(と各ハンドル)を順に記録する。</summary>
+/// <summary>Test audio engine that records played clips (and their handles) in order.</summary>
 internal sealed class FakeAudioEngine : IAudioEngine
 {
     public List<FakePlayingSound> Played { get; } = [];

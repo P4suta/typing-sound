@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    # labeled/unlabeled は、label 駆動の release-gate が `release: approved` の付与/除去で
-    # 再評価されるように追加(無いと label 変更でゲート結果が stale になる)。重い windows の
-    # build-test は label イベントではスキップするので、コストは安価な ubuntu 層 + ゲートのみ。
+    # labeled/unlabeled re-evaluate the label-driven release-gate when `release: approved`
+    # is added/removed (else the gate result goes stale). Heavy windows build-test skips on
+    # label events, so cost is the cheap ubuntu tier + gate only.
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
-# 追い越された PR 実行はキャンセル。main(マージ後の系譜/成果物)は決してキャンセルしない。
+# Cancel superseded PR runs. Never cancel main.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -18,13 +18,11 @@ env:
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
-# 既定は最小権限。追加が要る唯一のジョブ(pr-title)は自分で設定する。
 permissions:
   contents: read
 
 jobs:
-  # docs のみの PR では重い windows ジョブをスキップ(ci-required はその skipped を success と
-  # みなすので分岐保護は通る)。
+  # Skip the heavy windows job on docs-only PRs (ci-required treats the skip as success).
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -48,19 +46,19 @@ jobs:
               - 'mise.toml'
               - '.github/workflows/ci.yml'
 
-  # ── ubuntu hygiene 層: 並列・needs 無し・安価な fast-fail シグナル ──
+  # ubuntu hygiene tier: parallel, no needs, cheap fast-fail signal.
   hygiene:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      # ワークフロー YAML 自体を lint: 構文、${{ }} 式の型、run: ブロックへの shellcheck。
+      # Lint workflow YAML: syntax, ${{ }} expression types, shellcheck on run: blocks.
       - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
-      - uses: crate-ci/typos@bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0 (ルートの _typos.toml を読む)
+      - uses: crate-ci/typos@bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0 (reads _typos.toml)
       - uses: uncenter/setup-taplo@b18c8c8302695fe63d6853bc004006215ac52b91 # v2
         with:
           version: "0.10.0"
-      # ルートから fmt --check で TOML の *整形*(taplo.toml)を検証(妥当性だけでなく)。
+      # Check TOML *formatting* (taplo.toml), not just validity.
       - run: taplo fmt --check
 
   pr-title:
@@ -70,14 +68,13 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      # Conventional Commits の PR タイトルゲート(squash マージの権威)。types は committed.toml と揃える。
+      # Conventional Commits PR-title gate (authoritative for squash merge). types match committed.toml.
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # 多層防御(docs/RELEASING.md): release-please の Release PR(ラベル "autorelease: pending")は、
-  # 人間が意図的に "release: approved" を付けるまでマージできない — 本番リリースは事故的マージでなく
-  # 明示的な行為。非リリース PR は無条件で通る。
+  # Defense in depth (docs/RELEASING.md): a release-please Release PR ("autorelease: pending")
+  # can't merge until a human deliberately adds "release: approved". Non-release PRs pass.
   release-gate:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -103,28 +100,28 @@ jobs:
             echo "Not a release PR — gate passes."
           fi
 
-  # ── windows ビルド層: 整形チェック + 全ビルド + カバレッジ付きテスト(just verify) ──
+  # windows build tier: format check + full build + tests with coverage (just verify).
   build-test:
     needs: [hygiene, changes]
-    # docs のみ変更ではスキップ。label イベント(ゲート再評価パス)でもスキップ — コードは変わって
-    # いないので。ci-required はどちらの skip も success とみなす。
+    # Skip on docs-only changes and on label events (gate-reeval path; code unchanged).
+    # ci-required treats either skip as success.
     if: needs.changes.outputs.code == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      # mise.toml の固定バージョンで dotnet / just を導入(ローカルと完全一致)。
+      # Pinned dotnet / just from mise.toml (exact match with local).
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           install: true
-      # 整形チェック + 全ビルド(Directory.Build.props で警告=エラー) + カバレッジ付きテスト。
+      # Format check + full build (warnings=errors via Directory.Build.props) + tests with coverage.
       - name: Verify (format + build + coverage)
         run: just verify
 
-  # 単一の必須ステータスチェック。leaf を推移的に強制し、`skipped`(docs のみ / paths ゲート)を
-  # success とみなす("Expected — Waiting" デッドロックを避ける)。PR 限定: PR マージをゲートする
-  # ためのもので、main への push には gate する対象が無い(かつ、キャンセルされた push 実行は
-  # gate-results が cancelled=failure とみなすので main を誤って赤くしてしまう)。
+  # Single required status check. Transitively enforces the leaves and treats `skipped`
+  # (docs-only / paths gate) as success (avoids "Expected — Waiting" deadlock). PR-only:
+  # it gates PR merges, and main has nothing to gate — plus a cancelled push run would be
+  # scored cancelled=failure by gate-results and wrongly redden main.
   ci-required:
     if: ${{ always() && github.event_name == 'pull_request' }}
     needs: [changes, hygiene, pr-title, release-gate, build-test]

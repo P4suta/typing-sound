@@ -41,7 +41,7 @@ BundleArtifacts/
 # Publish output
 publish/
 PublishScripts/
-# 注: *.pubxml(publish profile)は配布ビルドの出力パスを規定するソースなので追跡する。
+# Note: *.pubxml (publish profiles) are tracked — they define the release build output paths.
 
 # Code analysis and tooling
 _ReSharper*/

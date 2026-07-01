@@ -1,12 +1,12 @@
 namespace TypingSound.Core.Abstractions;
 
 /// <summary>
-/// 再生可能な音声クリップ 1 つを表す不透明ハンドル。
-/// Core 層は音声データの中身を知らず、識別子と参照同一性だけを扱う。
-/// 実際のデコード/再生は <see cref="IAudioEngine"/> の実装(Platform 層)が担う。
+/// Opaque handle to a single playable sound clip. The Core layer does not know the audio data, only
+/// the identifier and reference identity; decoding/playback is done by the <see cref="IAudioEngine"/>
+/// implementation (Platform layer).
 /// </summary>
 public interface ISoundClip
 {
-    /// <summary>クリップの識別子(例: ファイル名から導出)。</summary>
+    /// <summary>Clip identifier (e.g. derived from the file name).</summary>
     string Id { get; }
 }
