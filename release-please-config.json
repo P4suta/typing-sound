@@ -3,7 +3,6 @@
   "include-component-in-tag": false,
   "tag-separator": "-",
   "bootstrap-sha": "2e75d6ed294ff879da8b10207911d1cd069f199d",
-  "release-as": "0.1.0",
   "packages": {
     ".": {
       "release-type": "simple",
