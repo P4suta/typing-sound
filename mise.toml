@@ -1,3 +1,12 @@
 [tools]
 dotnet = "10.0.300"
 just = "1.51.0"
+
+# 開発 / CI ツール。lefthook = git フック、committed = commit-msg の Conventional Commits 検査、
+# actionlint / typos / taplo = hygiene(整形・誤字・TOML)。すべてプレビルトバイナリ backend で
+# 固定(committed は ubi でプレビルト release を取得し、ソースビルドを避ける)。
+lefthook = "2.1.9"
+actionlint = "1.7.12"
+typos = "1.48.0"
+taplo = "0.10.0"
+"ubi:crate-ci/committed" = "1.1.11"

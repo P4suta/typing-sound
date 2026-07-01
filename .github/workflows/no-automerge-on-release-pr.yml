@@ -1,0 +1,35 @@
+# Release PR は意図的な手動クリックでマージする(docs/RELEASING.md)。auto-merge は通常 PR で使う
+# リポジトリ全体の機能なので GitHub の "Enable auto-merge" ボタンを PR 個別に隠せない — 代わりに、
+# 誰かが release-please PR で auto-merge を有効化したら即座に無効化し直す。これが無いと、auto-merge を
+# 事前に仕込んで後から `release: approved` ラベルを付けるだけで、意図的マージのゲートが 1 アクションに
+# 潰れてしまう。
+#
+# pull_request_target なので main の定義から write トークンで動く。API を叩いて auto-merge を無効化
+# するだけ(PR コードは checkout しない)で、release-please 自身のブランチにスコープされているので安全で、
+# 通常 PR には一切触れない。
+name: no-automerge-on-release-pr
+
+on:
+  pull_request_target:
+    types: [auto_merge_enabled]
+
+permissions:
+  contents: read
+
+jobs:
+  disable:
+    if: startsWith(github.event.pull_request.head.ref, 'release-please--')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Disable auto-merge on the Release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr merge "$PR" --repo "$REPO" --disable-auto-merge
+          gh pr comment "$PR" --repo "$REPO" --body \
+            "🔒 Auto-merge was disabled automatically: a release is a deliberate act. Add the \`release: approved\` label and merge this PR by hand (see docs/RELEASING.md)."

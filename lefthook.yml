@@ -1,0 +1,21 @@
+commit-msg:
+  jobs:
+    # Conventional Commits が release-please のバージョン + CHANGELOG 導出を駆動する。
+    # ci.yml の PR タイトルゲートが squash マージの権威。これはより早いローカルシグナル。
+    # {1} = git が commit-msg フックに渡すコミットメッセージファイル。--no-verify で回避しないこと。
+    - name: conventional-commit
+      run: committed --commit-file {1}
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: typos
+      run: typos
+    - name: taplo
+      glob: "*.toml"
+      # fmt --check(単なる check ではなく): TOML の *整形* を taplo.toml 準拠で強制。
+      run: taplo fmt --check
+    - name: format
+      glob: "*.cs"
+      # .editorconfig 準拠の空白/レイアウト整形チェック(cargo fmt 相当)。
+      run: mise exec -- dotnet format TypingSound.slnx whitespace --verify-no-changes

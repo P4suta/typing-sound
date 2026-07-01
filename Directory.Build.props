@@ -9,9 +9,25 @@
     規則の重大度・有効/無効は .editorconfig に集約する(ここでは付けるだけ)。
   -->
   <PropertyGroup>
+    <!--
+      バージョンの単一の源。release-please が Release PR でこの行を書き換える
+      (generic updater は "x-release-please-version" コメント行の version を差し替える)。
+      手で編集しない。全アセンブリ(TypingSound.exe / TypingSound.App.exe / Core)へ焼き込まれる。
+    -->
+    <Version>0.1.0</Version> <!-- x-release-please-version -->
+
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!--
+      NuGet の脆弱性監査を有効化(推移的依存も対象)。ただし NU19xx は警告のままにする
+      (TreatWarningsAsErrors=true でローカルビルドが突然壊れないように)。実際のゲートは
+      CI の nuget-audit.yml (dotnet list package の vulnerable チェック) が担う。
+    -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
 
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-all</AnalysisLevel>

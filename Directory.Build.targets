@@ -1,0 +1,26 @@
+<Project>
+
+  <!--
+    ビルド識別スタンプ。`Channel` プロパティに応じて AssemblyInformationalVersion を整形する。
+    Rust の buildstamp 相当を .NET だけで軽量再現(Nerdbank.GitVersioning は入れない)。
+
+      stable  = X.Y.Z                     (公式リリース。release.yml が -p:Channel=stable)
+      nightly = X.Y.Z-nightly.<date>+g<sha>(nightly.yml が -p:Channel=nightly -p:NightlyDate=<date>)
+      既定(dev)= X.Y.Z-dev+g<sha>          (ローカル/その他)
+
+    <Version> は Directory.Build.props(release-please 管理) が源。<sha> は CI から
+    -p:SourceRevision=<short-sha> で渡す(未指定ならサフィックス無し)。SDK が独自に付ける
+    SourceRevisionId 由来の +sha を抑止して、この整形結果だけを残す。
+  -->
+  <PropertyGroup>
+    <Channel Condition="'$(Channel)' == ''">dev</Channel>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <_ShaSuffix Condition="'$(SourceRevision)' != ''">+g$(SourceRevision)</_ShaSuffix>
+
+    <InformationalVersion Condition="'$(Channel)' == 'stable'">$(Version)</InformationalVersion>
+    <InformationalVersion Condition="'$(Channel)' == 'nightly'">$(Version)-nightly.$(NightlyDate)$(_ShaSuffix)</InformationalVersion>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)-dev$(_ShaSuffix)</InformationalVersion>
+  </PropertyGroup>
+
+</Project>

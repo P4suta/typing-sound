@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an idea (please read the out-of-scope list first)
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before you file
+
+        typing-sound is deliberately a small, portable, offline "sound on every
+        keystroke" tray app. The following are explicitly **out of scope**, and
+        such requests will be closed:
+
+        - Recording, logging, or transmitting *which* keys are pressed
+          (privacy is a core principle — the app only ever knows that *a* key was
+          pressed and its rough class)
+        - Any network feature, telemetry, or cloud sync
+        - Key remapping, macros, or text expansion (this is not an input tool)
+        - Cross-platform (macOS / Linux) support — Windows-only by design
+        - An installer or anything requiring administrator rights / developer mode
+          (the app stays portable)
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I confirm this is not on the out-of-scope list above.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

@@ -1,0 +1,3 @@
+# すべてのファイルは既定でメンテナがオーナー。"Require review from Code Owners" を有効にすると
+# 全 PR にレビューが要る(ルールセットの設定は .github/rulesets/ 参照)。
+*       @P4suta

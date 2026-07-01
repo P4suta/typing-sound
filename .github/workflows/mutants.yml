@@ -1,0 +1,41 @@
+# ミューテーションテスト(Stryker.NET)を Core 層に週次で回す。テストが「実際にロジックを守れて
+# いるか」(網羅率だけでは見えない)を測る。あくまで informational — continue-on-error でゲートしない。
+# 生存ミュータントのレポート(HTML/JSON)を artifact 化する。
+name: mutants
+
+on:
+  schedule:
+    - cron: "53 4 * * 1" # 毎週月曜 04:53 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutants:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    continue-on-error: true # 情報提供のみ。決してゲートしない。
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          install: true
+
+      # ローカルツール manifest(.config/dotnet-tools.json)から dotnet-stryker を復元。
+      - name: Restore local tools
+        run: mise exec -- dotnet tool restore
+
+      # Core.Tests は Core だけを参照するので Stryker が対象を自動検出する。
+      - name: Run Stryker (Core)
+        working-directory: TypingSound.Core.Tests
+        run: mise exec -- dotnet stryker --reporter html --reporter json --reporter progress
+
+      - name: Upload Stryker report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutants-out
+          path: TypingSound.Core.Tests/StrykerOutput
+          retention-days: 30
+          if-no-files-found: warn

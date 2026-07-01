@@ -1,0 +1,11 @@
+# taplo(TOML フォーマッタ)の設定。手書きの TOML(mise.toml / committed.toml / これ自身)の
+# 整形を統一する。生成物は除外。
+exclude = ["dist/**", "build/**"]
+
+[formatting]
+align_comments = false
+column_width = 100
+indent_string = "  "
+reorder_keys = false
+reorder_arrays = false
+array_auto_collapse = false

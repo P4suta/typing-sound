@@ -1,0 +1,87 @@
+# release-please — バージョン/CHANGELOG/タグの bot (ADR-0001)。
+#
+# main に Conventional Commits が乗ると、この action が "Release PR" を開き続け、
+# Directory.Build.props の <Version> (generic updater) と CHANGELOG.md を更新する。
+# その PR をマージすると release-please は GitHub Release を DRAFT で作成し(config "draft": true)、
+# ここから release.yml を dispatch する。release.yml は build → sign → draft に資産添付 → publish
+# の順で公開する(publish がタグを作る)。draft-first の順序が、Immutable Releases で資産を
+# 公開前に載せるための肝。人間は手でバージョンを選んだり編集したりしない。
+#
+# GitHub App として動く: 2 つの secret(RELEASE_PLEASE_CLIENT_ID / RELEASE_PLEASE_PRIVATE_KEY)から
+# 短命のインストールトークンを作り、署名付き identity でリリースコミット + PR を作る。secret 未設定なら
+# 緑で no-op(休眠): 足場を先に入れ、App は後から点灯する。(release.yml の dispatch は GITHUB_TOKEN
+# を使う — workflow_dispatch は GITHUB_TOKEN が起動できる唯一のイベント。) 詳細は docs/RELEASING.md。
+
+name: release-please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# リリース進行中は絶対にキャンセルしない。どのみち ref ごとに 1 本しか走らない。
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # App の秘密鍵はこの environment の secret に置く。deployment-branch policy を main のみに
+    # 設定しておくと、他ブランチ(や feature ブランチ上の悪意ある workflow 改変)から認証情報を
+    # 読めない(repository secret はどのブランチの push からも読めてしまう)。必須レビュアーは
+    # 敢えて置かない: release-please は無人で動く必要がある(人間のゲートは Release PR のマージ、
+    # 署名の承認ゲートは release.yml 側の別 environment `release`)。ADR-0001。
+    environment: release-please
+    permissions:
+      contents: write # リリースコミットと draft GitHub Release の作成
+      pull-requests: write # Release PR の作成 / 維持
+      actions: write # draft Release 作成後に release.yml を dispatch
+    env:
+      # サーバー側の真偽値 — secret の値そのものは露出しない。
+      HAS_APP: ${{ secrets.RELEASE_PLEASE_CLIENT_ID != '' && secrets.RELEASE_PLEASE_PRIVATE_KEY != '' }}
+    steps:
+      # このリポジトリにスコープした短命のインストールトークンを作る。その push(vX.Y.Z タグ)は
+      # GITHUB_TOKEN と違い release.yml を起動できる。
+      - name: Mint GitHub App token
+        id: app-token
+        if: env.HAS_APP == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_PRIVATE_KEY }}
+
+      - name: release-please (active)
+        id: rp
+        if: env.HAS_APP == 'true'
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # release-please は Release を DRAFT で作る(config "draft": true)。draft は `release`
+      # イベントを発火せず git タグも作らないので、release.yml を明示的に起動して
+      # build → sign → draft に資産添付 → publish(公開がタグを作る)を走らせる。GITHUB_TOKEN の
+      # dispatch は workflow_dispatch を起動してよい(再帰ガードの唯一の例外)ので App トークンは不要。
+      - name: Trigger the signed-release build
+        if: ${{ env.HAS_APP == 'true' && steps.rp.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.rp.outputs.tag_name }}
+          SHA: ${{ steps.rp.outputs.sha }}
+        run: |
+          gh workflow run release.yml --repo "$REPO" --ref main \
+            -f tag_name="$TAG" -f sha="$SHA" -f publish=true
+
+      - name: release-please (dormant — App not configured)
+        if: env.HAS_APP != 'true'
+        run: |
+          echo "::notice::release-please is dormant — set the RELEASE_PLEASE_CLIENT_ID and"
+          echo "RELEASE_PLEASE_PRIVATE_KEY secrets (a GitHub App) to activate."
+          echo "See docs/RELEASING.md and docs/adr/0001-automated-versioning-with-release-please.md."
