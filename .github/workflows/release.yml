@@ -121,22 +121,26 @@ jobs:
         with:
           ref: ${{ env.REF }}
 
+      # dotnet for the eng/TsBuild helper used by the staging steps below.
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          install: true
+
       - name: Download unsigned bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
           path: dist/TypingSound
 
-      # Stage only first-party PEs flat. Bundled .NET / WindowsAppSDK runtime DLLs are
-      # already Microsoft-signed — re-signing wastes eSigner quota and claims no rights.
+      # Stage only first-party PEs flat (the PE list lives in eng/TsBuild). Bundled .NET /
+      # WindowsAppSDK runtime DLLs are already Microsoft-signed — re-signing wastes eSigner
+      # quota and claims no rights. `signed` is the eSigner output dir (created up front).
       - name: Stage first-party binaries for signing
         if: env.HAVE_SIGNING == 'true'
-        shell: pwsh
+        shell: bash
         run: |
-          $targets = 'TypingSound.exe', 'app/TypingSound.App.exe'
-          New-Item -ItemType Directory -Force sign-stage | Out-Null
-          New-Item -ItemType Directory -Force signed | Out-Null
-          $targets | ForEach-Object { Copy-Item "dist/TypingSound/$_" "sign-stage/$(Split-Path $_ -Leaf)" }
+          mkdir -p signed
+          mise exec -- dotnet run --project eng/TsBuild -- sign-stage dist/TypingSound sign-stage
 
       - name: Sign staged binaries (SSL.com eSigner)
         if: env.HAVE_SIGNING == 'true'
@@ -159,10 +163,8 @@ jobs:
 
       - name: Copy signed binaries back into the bundle
         if: env.HAVE_SIGNING == 'true'
-        shell: pwsh
-        run: |
-          $targets = 'TypingSound.exe', 'app/TypingSound.App.exe'
-          $targets | ForEach-Object { Copy-Item "signed/$(Split-Path $_ -Leaf)" "dist/TypingSound/$_" -Force }
+        shell: bash
+        run: mise exec -- dotnet run --project eng/TsBuild -- sign-unstage signed dist/TypingSound
 
       # Never ship supposedly-signed binaries that are silently unsigned / un-timestamped /
       # wrong-cert. Verification (chain + RFC 3161 timestamp + signer subject) is a composite
