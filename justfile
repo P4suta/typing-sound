@@ -78,12 +78,10 @@ dist arch="x64": (publish arch)
 package tag arch="x64":
     if (-not (Test-Path dist/TypingSound)) { throw "dist/TypingSound not found. Run just dist {{arch}} first." }
     New-Item -ItemType Directory -Force -Path build/package -ErrorAction Stop | Out-Null
-    $zip = "build/package/TypingSound-{{tag}}-win-{{arch}}.zip"
-    if (Test-Path $zip) { Remove-Item -Force $zip }
-    Compress-Archive -Path dist/TypingSound/* -DestinationPath $zip -Force
-    $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-    "$hash  $(Split-Path $zip -Leaf)" | Set-Content -Path build/package/SHA256SUMS.txt -Encoding ascii
-    Write-Host ("package created: {0}" -f $zip)
+    if (Test-Path "build/package/TypingSound-{{tag}}-win-{{arch}}.zip") { Remove-Item -Force "build/package/TypingSound-{{tag}}-win-{{arch}}.zip" }
+    Compress-Archive -Path dist/TypingSound/* -DestinationPath "build/package/TypingSound-{{tag}}-win-{{arch}}.zip" -Force
+    ("{0}  TypingSound-{{tag}}-win-{{arch}}.zip" -f (Get-FileHash "build/package/TypingSound-{{tag}}-win-{{arch}}.zip" -Algorithm SHA256).Hash.ToLower()) | Set-Content -Path build/package/SHA256SUMS.txt -Encoding ascii
+    Write-Host "package created: build/package/TypingSound-{{tag}}-win-{{arch}}.zip"
 
 # Remove build artifacts and dist
 clean:
