@@ -3,7 +3,7 @@
   <!-- Shared strict-quality settings. Rule severities live in .editorconfig. -->
   <PropertyGroup>
     <!-- Single source of version; release-please rewrites this line via the x-release-please-version marker. Do not hand-edit. -->
-    <Version>0.1.0</Version> <!-- x-release-please-version -->
+    <Version>0.1.1</Version> <!-- x-release-please-version -->
 
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
