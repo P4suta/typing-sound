@@ -10,15 +10,13 @@ description: >-
 runs:
   using: composite
   steps:
-    # SBOM tooling (release/nightly-only; deliberately not in the dev loop).
-    # Version-pinned; NuGet verifies package integrity against its immutable
-    # index, so a pinned version is fetched reproducibly. Append the dotnet
-    # global-tool dir to PATH for the SBOM step.
-    - name: Install SBOM tools
+    # SBOM tooling (CycloneDX) is pinned in .config/dotnet-tools.json. Restore it
+    # from the manifest rather than a --global install: the repo ships a local
+    # tool manifest, so `dotnet CycloneDX` resolves to the local tool and a global
+    # install would be shadowed ("Run 'dotnet tool restore'..." -> exit 1).
+    - name: Restore SBOM tool (CycloneDX)
       shell: pwsh
-      run: |
-        dotnet tool install --global CycloneDX --version 6.2.0
-        "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      run: dotnet tool restore
 
     # SBOM (CycloneDX 1.6 JSON), generated after the build so the resolved graph
     # matches what shipped. win-x64 runtime graph (self-contained portable).
