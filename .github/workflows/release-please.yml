@@ -1,16 +1,7 @@
-# release-please — バージョン/CHANGELOG/タグの bot (ADR-0001)。
-#
-# main に Conventional Commits が乗ると、この action が "Release PR" を開き続け、
-# Directory.Build.props の <Version> (generic updater) と CHANGELOG.md を更新する。
-# その PR をマージすると release-please は GitHub Release を DRAFT で作成し(config "draft": true)、
-# ここから release.yml を dispatch する。release.yml は build → sign → draft に資産添付 → publish
-# の順で公開する(publish がタグを作る)。draft-first の順序が、Immutable Releases で資産を
-# 公開前に載せるための肝。人間は手でバージョンを選んだり編集したりしない。
-#
-# GitHub App として動く: 2 つの secret(RELEASE_PLEASE_CLIENT_ID / RELEASE_PLEASE_PRIVATE_KEY)から
-# 短命のインストールトークンを作り、署名付き identity でリリースコミット + PR を作る。secret 未設定なら
-# 緑で no-op(休眠): 足場を先に入れ、App は後から点灯する。(release.yml の dispatch は GITHUB_TOKEN
-# を使う — workflow_dispatch は GITHUB_TOKEN が起動できる唯一のイベント。) 詳細は docs/RELEASING.md。
+# release-please — version / CHANGELOG / tag bot (ADR-0001). Maintains a Release PR;
+# merging it creates a DRAFT Release and dispatches release.yml. Runs as a GitHub App
+# (RELEASE_PLEASE_CLIENT_ID / RELEASE_PLEASE_PRIVATE_KEY); dormant green no-op until those
+# secrets are set. See docs/RELEASING.md.
 
 name: release-please
 
@@ -19,7 +10,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# リリース進行中は絶対にキャンセルしない。どのみち ref ごとに 1 本しか走らない。
+# Never cancel mid-release. One per ref anyway.
 concurrency:
   group: release-please-${{ github.ref }}
   cancel-in-progress: false
@@ -31,22 +22,21 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # App の秘密鍵はこの environment の secret に置く。deployment-branch policy を main のみに
-    # 設定しておくと、他ブランチ(や feature ブランチ上の悪意ある workflow 改変)から認証情報を
-    # 読めない(repository secret はどのブランチの push からも読めてしまう)。必須レビュアーは
-    # 敢えて置かない: release-please は無人で動く必要がある(人間のゲートは Release PR のマージ、
-    # 署名の承認ゲートは release.yml 側の別 environment `release`)。ADR-0001。
+    # App private key lives in this environment's secrets, with a main-only deployment-branch
+    # policy so other branches (or malicious workflow edits on a feature branch) can't read
+    # the credentials — repository secrets would be readable from any branch's push. No
+    # required reviewers on purpose: release-please must run unattended. ADR-0001.
     environment: release-please
     permissions:
-      contents: write # リリースコミットと draft GitHub Release の作成
-      pull-requests: write # Release PR の作成 / 維持
-      actions: write # draft Release 作成後に release.yml を dispatch
+      contents: write # release commit + draft Release
+      pull-requests: write # Release PR
+      actions: write # dispatch release.yml
     env:
-      # サーバー側の真偽値 — secret の値そのものは露出しない。
+      # Server-side boolean — never exposes the secret value.
       HAS_APP: ${{ secrets.RELEASE_PLEASE_CLIENT_ID != '' && secrets.RELEASE_PLEASE_PRIVATE_KEY != '' }}
     steps:
-      # このリポジトリにスコープした短命のインストールトークンを作る。その push(vX.Y.Z タグ)は
-      # GITHUB_TOKEN と違い release.yml を起動できる。
+      # Mint a short-lived installation token scoped to this repo. Unlike GITHUB_TOKEN, its
+      # push (vX.Y.Z tag) can trigger release.yml.
       - name: Mint GitHub App token
         id: app-token
         if: env.HAS_APP == 'true'
@@ -64,10 +54,9 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # release-please は Release を DRAFT で作る(config "draft": true)。draft は `release`
-      # イベントを発火せず git タグも作らないので、release.yml を明示的に起動して
-      # build → sign → draft に資産添付 → publish(公開がタグを作る)を走らせる。GITHUB_TOKEN の
-      # dispatch は workflow_dispatch を起動してよい(再帰ガードの唯一の例外)ので App トークンは不要。
+      # The Release is a DRAFT (config "draft": true), which fires no `release` event and
+      # creates no tag, so dispatch release.yml explicitly. GITHUB_TOKEN may trigger
+      # workflow_dispatch (the one recursion-guard exception), so no App token needed.
       - name: Trigger the signed-release build
         if: ${{ env.HAS_APP == 'true' && steps.rp.outputs.release_created == 'true' }}
         env:

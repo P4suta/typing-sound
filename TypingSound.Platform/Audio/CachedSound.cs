@@ -6,10 +6,10 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Platform.Audio;
 
 /// <summary>
-/// WAV をメモリへ展開し、出力デバイスのフォーマットに変換して保持するクリップ。
-/// 押下時はこのバッファをミキサーへ流すだけ(都度デコード/オープンしない)。
-/// 読み込みは <see cref="MediaFoundationReader"/> で行うため、24bit や WAVE_FORMAT_EXTENSIBLE、
-/// 圧縮 WAV も扱える(古い <c>AudioFileReader</c> は Extensible を ACM 変換に回して失敗する)。
+/// A clip decoded into memory and converted to the output device format.
+/// On key press the buffer is just fed to the mixer (no per-press decode/open).
+/// Loaded via <see cref="MediaFoundationReader"/> so 24-bit, WAVE_FORMAT_EXTENSIBLE and compressed WAV work
+/// (the older <c>AudioFileReader</c> routes Extensible through ACM conversion and fails).
 /// </summary>
 internal sealed class CachedSound : ISoundClip
 {
@@ -27,7 +27,7 @@ internal sealed class CachedSound : ISoundClip
 
     internal WaveFormat WaveFormat { get; }
 
-    /// <summary>WAV を読み込み、<paramref name="targetFormat"/>(出力デバイス形式)へ変換して常駐させる。</summary>
+    /// <summary>Loads the WAV and converts it to <paramref name="targetFormat"/> (the output device format), held in memory.</summary>
     internal static CachedSound Load(string path, string id, WaveFormat targetFormat)
     {
         MediaFoundationApi.Startup();
@@ -68,6 +68,6 @@ internal sealed class CachedSound : ISoundClip
         }
 
         throw new NotSupportedException(
-            $"チャンネル数 {source.WaveFormat.Channels} から {targetChannels} への変換は未対応です。");
+            $"Converting from {source.WaveFormat.Channels} channels to {targetChannels} is not supported.");
     }
 }

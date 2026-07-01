@@ -1,11 +1,8 @@
-# release-please は Release PR を `autorelease: pending` ラベルで追跡し、マージ後にそのラベルを
-# 持つマージ済み PR を見つけてタグ + GitHub Release を切る(ラベルを `autorelease: tagged` に付け替える)。
-# このラベルを剥がすとリリースが黙って切られなくなる。GitHub にはラベル単位のロックが無いので、
-# 代わりに: 誰かが release-please PR から `autorelease: pending` を外したら即座に付け直す。
-#
-# no-automerge-on-release-pr.yml に倣い pull_request_target: main の定義から write トークンで動き、
-# API のみ(PR コードは checkout しない)、release-please 自身のブランチにスコープ — 安全で通常 PR には
-# 触れない。人間の承認ラベル `release: approved` は敢えてガードしない: 外す(承認取り消し)のは正当な操作。
+# Prevents silently skipping a release by stripping the `autorelease: pending` label that
+# release-please needs to cut the tag + Release: re-adds it if removed from an open
+# release-please PR. Like no-automerge-on-release-pr.yml: pull_request_target, API-only, no
+# PR checkout, scoped to release-please branches. The `release: approved` label is not
+# guarded — removing it (revoking approval) is legitimate.
 name: release-label-guard
 
 on:
@@ -17,10 +14,9 @@ permissions:
 
 jobs:
   reinstate:
-    # `unlabeled` イベントの github.event.label.name は今剥がされたラベル。OPEN な Release PR でのみ
-    # ガードする: PR がマージ/クローズされた後は release-please は既にリリースを切り終えており、
-    # 残った `autorelease: pending` はそのマージ済み PR を RE-release させようとする — なので閉じた PR から
-    # 古いラベルを外すのは正しく、付け直してはいけない。
+    # Only guard OPEN release-please PRs: after merge/close release-please has already cut
+    # the release, so a lingering `autorelease: pending` would try to RE-release the merged
+    # PR — removing the stale label there is correct and must not be reinstated.
     if: >-
       github.event.pull_request.state == 'open'
       && startsWith(github.event.pull_request.head.ref, 'release-please--')

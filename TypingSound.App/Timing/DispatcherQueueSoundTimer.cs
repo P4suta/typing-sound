@@ -5,9 +5,9 @@ using TypingSound.Core.Abstractions;
 namespace TypingSoundApp.Timing;
 
 /// <summary>
-/// <see cref="DispatcherQueueTimer"/> を用いた単発タイマー。コールバックは <b>UI スレッド</b>で発火するため、
-/// デバウンス由来のパイプライン処理も UI スレッド単一親和となり、Core 側はロック不要になる。
-/// Tick から例外を WinUI へ漏らさない(漏らすと UnhandledException でクラッシュしうる)よう境界で握りつぶす。
+/// One-shot timer built on <see cref="DispatcherQueueTimer"/>. The callback fires on the <b>UI thread</b>,
+/// so debounce-driven pipeline processing stays single-threaded on the UI thread and Core needs no locks.
+/// Exceptions are swallowed at the boundary so Tick never leaks them into WinUI (which could crash via UnhandledException).
 /// </summary>
 internal sealed partial class DispatcherQueueSoundTimer : ISoundTimer
 {
@@ -52,7 +52,7 @@ internal sealed partial class DispatcherQueueSoundTimer : ISoundTimer
 
     private void OnTick(DispatcherQueueTimer sender, object args)
     {
-        // 例外フィルタ内でログし true を返すことで、Tick から例外を漏らさない。
+        // Log inside the exception filter and return true so Tick never leaks the exception.
         static bool LogAndSwallow(ILogger logger, Exception ex)
         {
             LogTickHandlerThrew(logger, ex);
@@ -73,7 +73,6 @@ internal sealed partial class DispatcherQueueSoundTimer : ISoundTimer
         }
         catch (Exception ex) when (LogAndSwallow(_logger, ex))
         {
-            // 例外はフィルタ内でログ済み。ここでは握りつぶす。
         }
     }
 }

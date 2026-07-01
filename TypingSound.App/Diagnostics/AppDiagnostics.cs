@@ -8,9 +8,9 @@ using Serilog.Extensions.Logging;
 namespace TypingSoundApp.Diagnostics;
 
 /// <summary>
-/// App の診断/可観測性基盤。Serilog を構成し、ファイル(ローリング)・Debug 出力・
-/// インメモリのリングバッファへログを送る。Microsoft.Extensions.Logging の
-/// <see cref="ILoggerFactory"/> を公開し、境界(Platform/App)のロガー生成に用いる。
+/// App diagnostics/observability infrastructure. Configures Serilog to write to a rolling file,
+/// Debug output, and an in-memory ring buffer. Exposes an <see cref="ILoggerFactory"/> used to
+/// create loggers at the Platform/App boundaries.
 /// </summary>
 public sealed class AppDiagnostics : IDisposable
 {
@@ -21,7 +21,8 @@ public sealed class AppDiagnostics : IDisposable
 
     public AppDiagnostics()
     {
-        // ポータブル方針: ログは exe と同じフォルダ配下に置き、マシン固有の場所(%LOCALAPPDATA% 等)へ痕跡を残さない。
+        // Portable by design: logs live under the exe's folder, leaving no trace in machine-specific
+        // locations such as %LOCALAPPDATA%.
         LogDirectory = Path.Combine(AppContext.BaseDirectory, "logs");
         Directory.CreateDirectory(LogDirectory);
 
@@ -39,7 +40,7 @@ public sealed class AppDiagnostics : IDisposable
             .WriteTo.Sink(_ringBufferSink)
             .CreateLogger();
 
-        // dispose: false → SerilogLoggerFactory は Logger を所有しない。Logger は本クラスが破棄する。
+        // dispose: false means SerilogLoggerFactory does not own the Logger; this class disposes it.
         _loggerFactory = new SerilogLoggerFactory(_logger, dispose: false);
     }
 

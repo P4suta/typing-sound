@@ -1,22 +1,16 @@
-# =========================================================================
-#  TypingSound .gitignore
-#  .NET / Visual Studio のビルド成果物と配布物を除外する。
-#  ソースのみがコミットされる状態を保つ(公開リポジトリのため特に重要)。
-# =========================================================================
-
-## ビルド出力
+## Build output
 [Bb]in/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
 
-## 配布レイアウト(just dist の出力。CI/タグで再生成するためコミットしない)
+## Distribution layout (just dist output; regenerated)
 dist/
 
-## パッケージ / SBOM 出力(just package / sbom-scan の出力)
+## Package / SBOM output (just package / sbom-scan)
 build/
 
-## Stryker(ミューテーションテスト)出力
+## Stryker (mutation testing) output
 StrykerOutput/
 
 ## Visual Studio / Rider / VS Code
@@ -41,7 +35,7 @@ artifacts/
 **/packages/*
 !**/packages/build/
 
-## テスト / カバレッジ
+## Test / coverage
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 *.coverage
@@ -51,11 +45,11 @@ coverage*.xml
 coverage*.info
 *.trx
 
-## OS / エディタ
+## OS / editor
 .DS_Store
 Thumbs.db
 *~
 *.swp
 
-## ローカル専用の一時物
+## Local-only temp files
 *.log

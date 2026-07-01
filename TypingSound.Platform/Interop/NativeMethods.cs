@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace TypingSound.Platform.Interop;
 
-/// <summary>Win32 のグローバルキーボードフック関連 P/Invoke 定義(集約)。</summary>
+/// <summary>Win32 P/Invoke definitions for the global keyboard hook.</summary>
 internal static class NativeMethods
 {
     internal const int WhKeyboardLl = 13;
@@ -10,7 +10,7 @@ internal static class NativeMethods
     internal const int WmSysKeyDown = 0x0104;
     internal const int VkReturn = 0x0D;
 
-    /// <summary>低レベルキーボードフックのコールバック。</summary>
+    /// <summary>Low-level keyboard hook callback.</summary>
     internal delegate nint HookProc(int nCode, nint wParam, nint lParam);
 
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

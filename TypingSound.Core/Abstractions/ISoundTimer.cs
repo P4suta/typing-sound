@@ -1,17 +1,16 @@
 namespace TypingSound.Core.Abstractions;
 
 /// <summary>
-/// 単発タイマーの抽象。<see cref="Schedule"/> を呼ぶたびに前回の予約は取り消され、新しい遅延で測り直す
-/// (デバウンス用)。Platform/App 層の実装は UI スレッド上でコールバックを発火させ、
-/// パイプラインのスレッド親和性(ロック不要)を保証する。テストではフェイク実装で時間を進める。
+/// Abstraction over a one-shot timer. Each <see cref="Schedule"/> call cancels the previous
+/// reservation and restarts with the new delay (used for debouncing). Platform/App implementations
+/// fire the callback on the UI thread, guaranteeing the pipeline's thread affinity (lock-free). Tests
+/// use a fake implementation to advance time.
 /// </summary>
 public interface ISoundTimer : IDisposable
 {
-    /// <summary>指定遅延後に一度だけ <paramref name="callback"/> を呼ぶよう予約する(前回の予約は取り消す)。</summary>
-    /// <param name="delay">発火までの遅延。</param>
-    /// <param name="callback">発火時に呼ぶコールバック。</param>
+    /// <summary>Schedules <paramref name="callback"/> to fire once after the delay (cancels any prior reservation).</summary>
     void Schedule(TimeSpan delay, Action callback);
 
-    /// <summary>予約中のコールバックを取り消す。</summary>
+    /// <summary>Cancels the pending callback.</summary>
     void Cancel();
 }

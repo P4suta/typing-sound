@@ -20,16 +20,16 @@ using TypingSoundApp.Timing;
 namespace TypingSoundApp;
 
 /// <summary>
-/// アプリの合成ルート。Platform 実装(フック/NAudio/音源ロード)を Core の抽象へ束ね、
-/// トレイ常駐 UI(モード切替・終了)を提供する。ウィンドウは持たないトレイ専用アプリ。
+/// Application composition root. Binds Platform implementations (hook/NAudio/sound loading)
+/// to the Core abstractions and provides a tray-resident UI. Windowless, tray-only app.
 /// </summary>
 public sealed partial class App : Application, IDisposable
 {
-    // 単一インスタンス用の一意な mutex 名(他アプリと衝突しないよう固定 GUID を含める)。
-    // 接頭辞なし(Local)はログオンセッション単位。マシン全体で 1 つに限るなら "Global\\" を付ける。
+    // Unique mutex name for single-instance enforcement. A fixed GUID avoids collisions with
+    // other apps. Unprefixed (Local) scopes it per logon session; use "Global\\" for one per machine.
     private const string SingleInstanceMutexName = "TypingSound-7B3F1E9C-2A4D-4C8E-9F10-SingleInstance";
 
-    // 復帰ベルとして扱うクリップの Id。これ以外の Assets/Sounds 内の全 wav が打鍵音プールになる。
+    // Id of the clip used as the return bell. Every other wav in Assets/Sounds is a typing-sound clip.
     private const string ReturnBellId = "bell";
 
     private static Mutex? _singleInstanceMutex;
@@ -42,7 +42,7 @@ public sealed partial class App : Application, IDisposable
     private TaskbarIcon? _tray;
     private bool _loggedFirstKey;
 
-    /// <summary>シングルトン アプリケーション オブジェクトを初期化する。</summary>
+    /// <summary>Initializes the singleton application object.</summary>
     public App() => InitializeComponent();
 
     /// <inheritdoc/>
@@ -54,16 +54,16 @@ public sealed partial class App : Application, IDisposable
         _audio?.Dispose();
         _singleInstanceMutex?.Dispose();
 
-        // 診断基盤は最後に破棄する。Platform の Dispose 経路(例: フック除去ログ)が
-        // まだロガーへ書くため、それより先にシンクを閉じない。
+        // Dispose diagnostics last: Platform Dispose paths (e.g. hook-removal logging) still
+        // write to the logger, so the sink must not close before them.
         _diagnostics?.Dispose();
     }
 
     /// <inheritdoc/>
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // 単一インスタンスを保証: 二重起動 = フック二重 = 音が二重になるのを防ぐ。
-        // 先行インスタンスが mutex を保持していれば isNew=false となり、2 つ目は即終了する。
+        // Enforce a single instance: a second launch would install a second hook and double the sound.
+        // If a prior instance already holds the mutex, isNew is false and the second one exits immediately.
         _singleInstanceMutex = new Mutex(initiallyOwned: true, SingleInstanceMutexName, out bool isNew);
         if (!isNew)
         {
@@ -73,8 +73,8 @@ public sealed partial class App : Application, IDisposable
             return;
         }
 
-        // --- 診断/可観測性基盤を最優先で起動し、グローバル例外ハンドラを最初に登録する ---
-        // これ以降の初期化(audio/hook/tray)で投げられた例外も確実に捕捉・記録できるようにする。
+        // --- Bring up diagnostics first and register global exception handlers before anything else ---
+        // so exceptions thrown by later initialization (audio/hook/tray) are still caught and logged.
         _diagnostics = new AppDiagnostics();
         ILogger log = _diagnostics.LoggerFactory.CreateLogger("App");
         _log = log;
@@ -85,7 +85,7 @@ public sealed partial class App : Application, IDisposable
 
         DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
 
-        // --- 合成ルート: Platform 実装を Core 抽象へ束ねる ---
+        // --- Composition root: bind Platform implementations to Core abstractions ---
         _audio = new NAudioEngine(_diagnostics.LoggerFactory.CreateLogger("Audio"));
 
         string soundsDirectory = Path.Combine(AppContext.BaseDirectory, "Assets", "Sounds");
@@ -94,9 +94,9 @@ public sealed partial class App : Application, IDisposable
             _audio.OutputFormat,
             _diagnostics.LoggerFactory.CreateLogger("Sounds"));
 
-        // Assets/Sounds 内の "bell" 以外の全 wav を打鍵音プールにする。現状の同梱は key2.wav のみなので
-        // 打鍵音は key2 に確定する(聴き比べの末に採用)。exe 隣の Assets/Sounds に wav を足せばプールが増え、
-        // ShuffleQueueSelector が重複なしで巡回する。ポータブルのまま構成を変えられる。
+        // Every wav in Assets/Sounds except "bell" forms the typing-sound pool. Adding wavs to the
+        // Assets/Sounds folder next to the exe grows the pool, which ShuffleQueueSelector cycles through
+        // without repeats. Configuration stays portable.
         IReadOnlyList<ISoundClip> typingPool = [.. bank.Clips.Where(clip => clip.Id != ReturnBellId)];
         SoundCatalog catalog = new(typingPool, bank.FindById(ReturnBellId));
         IReadOnlyList<ISoundMode> modes = DefaultModeSet.Create(catalog);
@@ -113,7 +113,7 @@ public sealed partial class App : Application, IDisposable
 
         _tray = CreateTrayIcon();
 
-        // 起動ヘルスログ: バージョン/OS/出力形式/クリップ件数/フック状態/初期モードを 1 行で記録する。
+        // Startup health log: version/OS/output format/clip count/hook state/initial mode on one line.
         Version version = typeof(App).Assembly.GetName().Version ?? new Version(0, 0, 0, 0);
         LogStartupComplete(
             log,
@@ -161,18 +161,18 @@ public sealed partial class App : Application, IDisposable
 
     private void OnAppUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
-        // 致命的: ログを残し、利用者へ通知する。e.Handled は安易に true にせず、既定の経路で落とす。
+        // Fatal: log and notify the user. Do not casually set e.Handled = true; let it crash the default way.
         if (_log is { } log)
         {
             LogUnhandledUiException(log, e.Exception);
         }
 
-        NotifyError("予期しないエラーが発生しました。ログを確認してください。");
+        NotifyError("An unexpected error occurred. Check the logs.");
     }
 
     private void OnDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs e)
     {
-        // AppDomain 経由の未処理例外。プロセスは原則終了するため、確実にログだけは残す。
+        // Unhandled exception via the AppDomain. The process normally terminates, so at least ensure it is logged.
         if (_log is { } log)
         {
             LogUnhandledDomainException(log, (Exception)e.ExceptionObject);
@@ -181,7 +181,7 @@ public sealed partial class App : Application, IDisposable
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        // 観測されなかった Task 例外。SetObserved() でプロセス終了を防ぎ、劣化継続する。
+        // Unobserved Task exception. SetObserved() prevents process termination and lets the app degrade gracefully.
         if (_log is { } log)
         {
             LogUnobservedTaskException(log, e.Exception);
@@ -206,20 +206,20 @@ public sealed partial class App : Application, IDisposable
 
     private TaskbarIcon CreateTrayIcon()
     {
-        // モードは Typewriter 一本(打鍵音 key2 ＋ Enter で復帰ベル)なので、トレイにモード選択は出さない。
-        // 切替の仕組み自体は Core 側(TypingSoundEngine.SwitchTo / ISoundMode)に温存している。
+        // Only one mode (Typewriter: typing sound plus a return bell on Enter), so the tray shows no
+        // mode picker. The switching mechanism itself remains in Core (TypingSoundEngine.SwitchTo / ISoundMode).
         MenuFlyout menu = new();
 
         MenuFlyoutItem openLogsItem = new()
         {
-            Text = "ログフォルダを開く",
+            Text = "Open log folder",
             Command = new RelayCommand(OpenLogFolder),
         };
         menu.Items.Add(openLogsItem);
 
         MenuFlyoutItem exitItem = new()
         {
-            Text = "終了",
+            Text = "Exit",
             Command = new RelayCommand(ExitApp),
         };
         menu.Items.Add(exitItem);
@@ -228,13 +228,13 @@ public sealed partial class App : Application, IDisposable
         {
             ToolTipText = "TypingSound",
 
-            // トレイアイコンは exe に埋め込んだものと同じ AppIcon.ico(白タイル＋黒タイプライター)を読み込む。
-            // H.NotifyIcon の IconSource は ImageSource 型なので BitmapImage を渡す。
+            // The tray icon loads the same AppIcon.ico embedded in the exe. H.NotifyIcon's IconSource
+            // is an ImageSource, so pass a BitmapImage.
             IconSource = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"))),
             ContextFlyout = menu,
 
-            // ウィンドウを持たないトレイ専用アプリのため、XamlRoot 不要のネイティブ Win32 ポップアップで
-            // コンテキストメニューを表示する(既定モードは XamlRoot を要し、窓無しだとメニューが反応しない)。
+            // Windowless tray-only app: show the context menu via a native Win32 popup that needs no
+            // XamlRoot. The default mode requires a XamlRoot, and without a window the menu would not respond.
             ContextMenuMode = ContextMenuMode.PopupMenu,
         };
         icon.ForceCreate();
@@ -243,7 +243,7 @@ public sealed partial class App : Application, IDisposable
 
     private void OpenLogFolder()
     {
-        // explorer.exe でログフォルダを開く。起動失敗はアプリ本体に影響させない(フィルタ＋swallow)。
+        // Open the log folder with explorer.exe. A launch failure must not affect the app.
         bool LogAndSwallow(Exception ex)
         {
             if (_log is { } log)
@@ -265,13 +265,12 @@ public sealed partial class App : Application, IDisposable
         }
         catch (Exception ex) when (LogAndSwallow(ex))
         {
-            // 例外はフィルタ内でログ済み。ここでは握りつぶす。
         }
     }
 
     private void NotifyError(string message)
     {
-        // トレイ通知の失敗(トレイ未生成・別スレッド等)はアプリ本体に影響させない(フィルタ＋swallow)。
+        // A tray-notification failure (tray not created, wrong thread, etc.) must not affect the app.
         bool LogAndSwallow(Exception ex)
         {
             if (_log is { } log)
@@ -294,7 +293,6 @@ public sealed partial class App : Application, IDisposable
         }
         catch (Exception ex) when (LogAndSwallow(ex))
         {
-            // 例外はフィルタ内でログ済み。ここでは握りつぶす。
         }
     }
 

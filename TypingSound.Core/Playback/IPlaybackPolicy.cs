@@ -2,12 +2,9 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSound.Core.Playback;
 
-/// <summary>
-/// 軸C:「どう鳴らすか」を決める戦略。<see cref="IAudioEngine"/> をコンストラクタで受け取る。
-/// </summary>
+/// <summary>Axis C: strategy deciding "how to play". Takes an <see cref="IAudioEngine"/> in its constructor.</summary>
 public interface IPlaybackPolicy
 {
-    /// <summary>クリップを方針に従って再生する。</summary>
-    /// <param name="clip">再生するクリップ。</param>
+    /// <summary>Plays a clip according to the policy.</summary>
     void Play(ISoundClip clip);
 }

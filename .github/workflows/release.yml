@@ -1,78 +1,57 @@
-# release-please から dispatch される build / sign / publish。署名の認証情報が触れる範囲を
-# 最小化するため 3 ジョブに分割:
-#
-#   build   -> 配布物(just dist)+ SBOM を組み立て artifact にアップロード。secret 無し・read-only。
-#   sign    -> 配布物を落とし、自分の 2 つの PE(TypingSound.exe / app/TypingSound.App.exe)を
-#              SSL.com eSigner(公式 SSLcom/esigner-codesign, batch_sign, SHA 固定)で Authenticode
-#              署名。RFC 3161 タイムスタンプ付き。署名対象だけを flat な staging へ集めて署名し戻し、
-#              chain+timestamp+signer を検証する。署名 secret を見る唯一のジョブなので、承認ゲート付き
-#              `release` environment で動かす。
-#   publish -> 署名済み配布物を落とし、署名済みか再検証(不可逆な公開の直前ゲート)し、zip+チェックサム化
-#              (just package)、鍵レスの build-provenance + SBOM attestation(OIDC GITHUB_TOKEN、保存 secret
-#              無し)を書き、release-please の draft に添付して publish する。publish=true のときだけ。
-#
-# 認証: リリースは既定の GITHUB_TOKEN。署名は `release` environment の 4 secret(ES_USERNAME /
-# ES_PASSWORD / CREDENTIAL_ID / ES_TOTP_SECRET)。本番実行(publish=true)は publish 直前に署名を
-# 再検証し、未署名なら(Immutable な)Release を作る前に FAIL する。secret 欠落や誤設定で未署名の
-# リリースが気付かれず出ることは無い。publish=false のスモークテストは未署名のまま完走し(::warning::)、
-# Release は作らない。手順は docs/SIGNING.md / docs/adr/0003-ci-signing-pipeline.md。
-#
-# ダウンロード検証: gh attestation verify <zip> --repo P4suta/typing-sound
+# Dispatched by release-please. Three jobs to minimize signing-secret exposure:
+# build -> assemble dist + SBOM (no secrets). sign -> Authenticode-sign first-party
+# PEs via SSL.com eSigner (approval-gated `release` environment). publish -> re-verify,
+# package (zip + checksums), keyless build-provenance + SBOM attestation, attach to
+# the release-please draft and publish (publish=true only). See docs/SIGNING.md,
+# docs/adr/0003-ci-signing-pipeline.md. Verify: gh attestation verify <zip> --repo P4suta/typing-sound
 name: release
 
 on:
-  # release-please.yml が DRAFT Release を作った後に dispatch する。`release` イベント(draft は
-  # 発火しない)にもタグ push(dispatch 専用なので迷子タグでは何も起きない)にも反応しない。
-  # release-please はマージ時に vX.Y.Z タグを実体化する(force-tag-creation)。publish ジョブが
-  # その draft に資産を添付して公開する(Immutable Releases が要求する「公開前に資産」順)。
-  # 手動での署名スモークテスト(publish=false)にも使える。
+  # Dispatched after release-please creates the DRAFT Release. publish=false runs a
+  # signing smoke test from a branch (no Release created).
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "リリースするバージョンタグ (例 v0.1.0)、または publish=false 署名テスト用の branch/ref"
+        description: "Version tag to release (e.g. v0.1.0), or a branch/ref for publish=false signing tests"
         required: true
         type: string
       sha:
-        description: "ビルド元コミット SHA (release-please はリリースコミットを渡す。省略時は tag_name)"
+        description: "Source commit SHA (release-please passes the release commit; defaults to tag_name)"
         required: false
         type: string
       publish:
-        description: "GitHub Release を公開するか (false = build+sign+verify のみ、Release/attestation 無し)"
+        description: "Publish a GitHub Release (false = build+sign+verify only, no Release/attestation)"
         required: false
         default: true
         type: boolean
 
-# ref ごとに 1 本。署名/公開の途中では絶対にキャンセルしない。
+# One per ref. Never cancel mid sign/publish.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-# 最小権限: トップは read-only。各ジョブが必要なスコープだけ要求する。
 permissions:
   contents: read
 
 env:
-  # バージョンタグ(vX.Y.Z) — スタンプ / zip 名 / リリースに再利用。
+  # Version tag (vX.Y.Z) — reused for stamp / zip name / release.
   TAG: ${{ inputs.tag_name }}
-  # どのコードを取るか: release-please が dispatch する時はリリースコミット SHA(タグはまだ無く、
-  # SHA 固定で承認待ち中に main が動いても影響しない)。手動 branch スモークでは tag_name にフォール
-  # バック。3 ジョブともこの ref を checkout し、composite action もその tree から解決される。
+  # Source to build: release-please passes the release commit SHA (pinned so main moving
+  # during approval has no effect); manual smoke falls back to tag_name.
   REF: ${{ inputs.sha || inputs.tag_name }}
-  # SSL.com IV 証明書の subject — 検証時(sign 自己チェック / publish ゲート)に主張し、別の
-  # (chain が有効でも)証明書が黙って通らないようにする。両ジョブで共有するため workflow レベル。
+  # SSL.com IV cert subject, asserted at verification so a different (chain-valid) cert
+  # can't pass silently. Shared by sign + publish.
   SIGNER_SUBJECT_CONTAINS: "CN=Yasunobu Sakashita"
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # 1) 配布物 + SBOM を組み立てる。secret 無し。
-  # ---------------------------------------------------------------------------
+  # 1) Assemble dist + SBOM. No secrets.
   build:
     runs-on: windows-latest
     permissions:
       contents: read
     steps:
-      # 公開実行が非バージョン ref を指していたら、承認ゲートの sign ジョブが reviewer 承認 +
-      # eSigner の署名クォータを無駄に消費する前に fail-fast。publish=false スモーク(例 tag_name=main)は除外。
+      # Fail fast if a publishing run targets a non-version ref, before the gated sign
+      # job burns reviewer approval + eSigner quota. Excludes publish=false smoke tests.
       - name: Validate tag for a publishing run
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         shell: bash
@@ -86,14 +65,13 @@ jobs:
         with:
           ref: ${{ env.REF }}
 
-      # mise.toml の固定バージョンで dotnet / just を用意 — 出荷物は正確なピンでビルドされる。
+      # Pinned dotnet / just from mise.toml — ship built with exact pins.
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           install: true
 
-      # クリーンな stable リリースとしてスタンプ。環境変数は MSBuild プロパティとして読まれるので、
-      # Directory.Build.targets が Channel=stable を見て InformationalVersion を素の X.Y.Z にする。
-      # SourceRevision はビルド元コミットの短縮 SHA。
+      # Stamp as a clean stable release. Env vars are read as MSBuild properties, so
+      # Directory.Build.targets uses Channel=stable for a bare X.Y.Z InformationalVersion.
       - name: Stamp stable build version
         shell: bash
         run: echo "SourceRevision=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
@@ -103,8 +81,8 @@ jobs:
           Channel: stable
         run: just dist x64
 
-      # SBOM(CycloneDX 1.6)+ osv-scanner のリリースゲートを composite に集約(nightly.yml と共有し
-      # ツールのバージョンがドリフトしない)。ビルド後に走らせ、出荷したグラフと一致させる。
+      # SBOM (CycloneDX 1.6) + osv-scanner release gate in a composite shared with
+      # nightly.yml (no tool drift). Run after build to match the shipped graph.
       - name: Generate SBOM and scan (release gate)
         uses: ./.github/actions/sbom-scan
 
@@ -124,10 +102,8 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # ---------------------------------------------------------------------------
-  # 2) 自分の PE を SSL.com eSigner で Authenticode 署名。署名 secret を持つ唯一のジョブ
-  #    -> 承認ゲート付き `release` environment。
-  # ---------------------------------------------------------------------------
+  # 2) Authenticode-sign first-party PEs via SSL.com eSigner. Only job holding signing
+  #    secrets -> approval-gated `release` environment.
   sign:
     needs: build
     runs-on: windows-latest
@@ -135,13 +111,12 @@ jobs:
     permissions:
       contents: read
     env:
-      # secrets.* は if: で参照できないので、有無をジョブレベルの env bool に持ち上げて署名ステップを
-      # env.HAVE_SIGNING でゲートする。batch_sign は credential_id 駆動なのでその有無で判定。
+      # secrets.* can't be used in if:, so hoist presence to a job env bool; steps gate on
+      # HAVE_SIGNING. batch_sign is credential_id-driven, so key off that.
       HAVE_SIGNING: ${{ secrets.ES_USERNAME != '' && secrets.CREDENTIAL_ID != '' }}
     steps:
-      # Verify ステップはローカル composite action を使うのでリポジトリ tree が要る(このジョブは他は
-      # 成果物だけ扱う)。ビルド元と同じコミットに固定。artifact ダウンロードより先に置き、checkout の
-      # clean が落とした bundle を消さないようにする。
+      # Verify uses a local composite action, so the repo tree is needed. Pinned to the
+      # build commit; before artifact download so checkout's clean doesn't wipe the bundle.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.REF }}
@@ -152,9 +127,8 @@ jobs:
           name: dist
           path: dist/TypingSound
 
-      # 自分の PE だけを flat な staging へ集める。同梱の .NET / WindowsAppSDK ランタイム DLL は
-      # 既に Microsoft 署名済み — 署名し直すのは eSigner クォータの無駄で、権利も主張できない。
-      # 2 ファイルは basename が衝突しないので、そのままの名前で staging できる。
+      # Stage only first-party PEs flat. Bundled .NET / WindowsAppSDK runtime DLLs are
+      # already Microsoft-signed — re-signing wastes eSigner quota and claims no rights.
       - name: Stage first-party binaries for signing
         if: env.HAVE_SIGNING == 'true'
         shell: pwsh
@@ -174,14 +148,13 @@ jobs:
           credential_id: ${{ secrets.CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ES_TOTP_SECRET }}
           dir_path: ${{ github.workspace }}\sign-stage
-          # 署名済みファイルを専用 dir に書く。batch_sign は override を尊重しない(Action が -override を
-          # 転送しない)ので、明示 output_path が無いと署名済みが別の場所に落ち、copy-back で未署名の
-          # 元ファイルを拾ってしまう(-> Verify で "NotSigned")。
+          # Write signed files to a dedicated dir. batch_sign ignores -override (the Action
+          # doesn't forward it), so without an explicit output_path the signed output lands
+          # elsewhere and copy-back grabs the unsigned originals (-> Verify sees "NotSigned").
           output_path: ${{ github.workspace }}\signed
           environment_name: PROD
-          # SSL.com アカウントは署名前のマルウェアスキャンを要求する。off だと batch_sign はハッシュのみ
-          # 送り "hash needs to be scanned first" で拒否される。true で Action が署名前にスキャンする。
-          # CodeSignTool は SSL.com の TSA でタイムスタンプするので署名は証明書より長生きする(Verify で強制)。
+          # SSL.com requires a pre-sign malware scan; off, batch_sign is rejected with
+          # "hash needs to be scanned first". true has the Action scan before signing.
           malware_block: "true"
 
       - name: Copy signed binaries back into the bundle
@@ -191,10 +164,9 @@ jobs:
           $targets = 'TypingSound.exe', 'app/TypingSound.App.exe'
           $targets | ForEach-Object { Copy-Item "signed/$(Split-Path $_ -Leaf)" "dist/TypingSound/$_" -Force }
 
-      # "署名済み" のはずが黙って未署名 / 未タイムスタンプ / 別証明書、で出荷しない。検証(chain +
-      # RFC 3161 timestamp + signer subject)は publish ゲートと共有の composite にあり、両者がドリフト
-      # しない — 署名 secret がある(HAVE_SIGNING=true)なら publish=false スモークがここで publish ゲートと
-      # 同一のチェックを走らせる。
+      # Never ship supposedly-signed binaries that are silently unsigned / un-timestamped /
+      # wrong-cert. Verification (chain + RFC 3161 timestamp + signer subject) is a composite
+      # shared with the publish gate (no drift).
       - name: Verify signatures
         if: env.HAVE_SIGNING == 'true'
         uses: ./.github/actions/verify-signatures
@@ -214,23 +186,20 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # ---------------------------------------------------------------------------
-  # 3) 署名済み配布物を zip+チェックサム化し、attest して Release に添付・公開する。
-  # ---------------------------------------------------------------------------
+  # 3) Package the signed dist, attest, attach to the Release and publish.
   publish:
     needs: sign
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
     runs-on: windows-latest
-    # 不可逆ステップに対する 2 つ目の承認ゲート(ADR-0003): GitHub Release は immutable なので、公開は
-    # sign とは別の明示的な人間承認を `release` environment で要求する("これに署名?" と "これを世界に公開?"
-    # は別)。誤リリースへの多層防御。
+    # Second approval gate for an irreversible step (ADR-0003): GitHub Releases are
+    # immutable, so publishing requires its own approval, separate from sign.
     environment: release
     permissions:
-      contents: write # GitHub Release の作成 + 資産アップロード
-      id-token: write # 鍵レス Sigstore 署名(attestation)用の OIDC トークン
-      attestations: write # build-provenance + SBOM attestation の書き込み
+      contents: write
+      id-token: write # OIDC for keyless Sigstore attestation
+      attestations: write
     steps:
-      # just package と toolchain のためリポジトリが要る。
+      # Repo needed for just package + toolchain.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.REF }}
@@ -245,9 +214,9 @@ jobs:
           name: dist-signed
           path: dist/TypingSound
 
-      # 不可逆な境界でのゲート: 本番公開は必ず署名済みバイナリを出荷する。署名 secret が無ければ sign は
-      # 警告のみで未署名のまま通す(HAVE_SIGNING=false)ので、attestation や immutable な Release の前に
-      # ここで FAIL する。sign が走らせるのと同一の composite verify。
+      # Gate at the irreversible boundary: a publishing run must ship signed binaries. When
+      # signing secrets are absent sign only warns and passes unsigned (HAVE_SIGNING=false),
+      # so FAIL here before attestation / immutable Release. Same composite verify as sign.
       - name: Require the bundle to be signed before publishing
         uses: ./.github/actions/verify-signatures
         with:
@@ -260,13 +229,13 @@ jobs:
           name: sbom
           path: build/sbom
 
-      # (署名済みの) bundle を zip + チェックサム化。名前は just package が決める:
-      # TypingSound-<version>-win-x64.zip + SHA256SUMS.txt を build/package/ に。
+      # Zip + checksum the signed bundle. just package names it:
+      # TypingSound-<version>-win-x64.zip + SHA256SUMS.txt in build/package/.
       - name: Package (zip + checksums)
         run: just package ${{ env.TAG }}
 
-      # 公開物の build provenance + SBOM attestation。workflow の OIDC トークンで鍵レス(保存 secret 無し)。
-      # 検証: gh attestation verify <zip> --repo P4suta/typing-sound
+      # Keyless build-provenance + SBOM attestation via the workflow OIDC token (no stored
+      # secrets). Verify: gh attestation verify <zip> --repo P4suta/typing-sound
       - name: Attest build provenance
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
@@ -280,10 +249,9 @@ jobs:
           subject-path: build/package/TypingSound-*-win-x64.zip
           sbom-path: build/sbom/app.cdx.json
 
-      # release-please がこの Release を DRAFT で作成済み(config "draft": true) — 資産もタグもまだ無い。
-      # draft へのアップロードは許可されており、softprops はファイルをアップロードしてから draft を publish
-      # する(immutable が要求する「資産を先に、公開は後」順)。publish がタグを作る。notes は release-please
-      # のものを使うので再生成しない。
+      # release-please created this Release as a DRAFT (config "draft": true) — no assets or
+      # tag yet. softprops uploads files then publishes the draft (immutable requires
+      # assets-before-publish); publishing creates the tag. Keep release-please's notes.
       - name: Publish the draft release with the signed assets
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:

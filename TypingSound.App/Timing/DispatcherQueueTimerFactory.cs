@@ -4,7 +4,7 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSoundApp.Timing;
 
-/// <summary>UI スレッドの <see cref="DispatcherQueue"/> 上で発火するタイマーを供給するファクトリ。</summary>
+/// <summary>Factory that supplies timers firing on the UI thread's <see cref="DispatcherQueue"/>.</summary>
 internal sealed class DispatcherQueueTimerFactory : ITimerFactory
 {
     private readonly DispatcherQueue _queue;

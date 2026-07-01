@@ -1,7 +1,7 @@
-# NuGet の既知脆弱性監査(cargo-audit の C# 版)。`dotnet list package --vulnerable` を回し、
-# 推移的依存も含めて GHSA アドバイザリのある依存があれば FAIL する。push/PR で回すほか、週次 cron で
-# コード不変でも新規開示のアドバイザリを拾う。ビルド時の <NuGetAudit>(Directory.Build.props)は
-# 警告どまりにしてあるので、ここが実際のゲート。
+# NuGet known-vulnerability audit (C# equivalent of cargo-audit). Runs `dotnet list package
+# --vulnerable` and FAILs if any dependency (including transitive) has a GHSA advisory. Runs
+# on push/PR plus a weekly cron to catch newly disclosed advisories with no code change.
+# Build-time <NuGetAudit> (Directory.Build.props) only warns, so this is the real gate.
 name: nuget-audit
 
 on:
@@ -10,7 +10,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "33 4 * * 1" # 毎週月曜 04:33 UTC(codeql/scorecard とずらす)
+    - cron: "33 4 * * 1" # Monday 04:33 UTC (offset from codeql/scorecard)
 
 permissions:
   contents: read
@@ -29,8 +29,8 @@ jobs:
       - name: Restore
         run: mise exec -- dotnet restore TypingSound.slnx
 
-      # `dotnet list package --vulnerable` は脆弱性があっても exit 0 を返すので、出力の GHSA 行を見て
-      # 判定する。アドバイザリ URL(advisories/GHSA-...)は脆弱なパッケージ行にのみ現れる。
+      # `dotnet list package --vulnerable` exits 0 even when vulnerable, so decide by grepping
+      # its output for GHSA lines — advisory URLs (advisories/GHSA-...) only appear on vulnerable rows.
       - name: Audit vulnerable packages
         shell: bash
         run: |

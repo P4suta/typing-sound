@@ -3,13 +3,13 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Core.Modes;
 
 /// <summary>
-/// 起動中のモード 1 つ分の実体。キー押下を受けて音を鳴らす責務を持つ。
-/// クリップ方式(<see cref="SoundModePipeline"/>)も連続声部方式(無限音階)も、この形に統一される。
-/// 単一スレッド(UI スレッド)から呼ばれる前提。破棄でリソース(タイマー/声部)を解放する。
+/// A single running mode instance, responsible for producing sound in response to key presses.
+/// Both the clip-based approach (<see cref="SoundModePipeline"/>) and continuous-voice approaches
+/// take this shape. Assumed to be called from a single (UI) thread. Disposing releases resources
+/// (timers/voices).
 /// </summary>
 public interface IActiveMode : IDisposable
 {
-    /// <summary>キーが 1 つ押されたことを通知する。</summary>
-    /// <param name="category">押下キーの分類。</param>
+    /// <summary>Notifies that a single key was pressed.</summary>
     void OnKeyPressed(KeyCategory category);
 }

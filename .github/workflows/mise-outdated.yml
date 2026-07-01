@@ -1,21 +1,18 @@
-# mise のツールピン(mise.toml)が最新から遅れていないか監視する — Dependabot が見られない隙間。
-#
-# Dependabot は nuget と github-actions をカバーするが、mise エコシステムは持たない。だから
-# ピン留めした dev/CI ツールチェーン(dotnet, just, lefthook, committed, actionlint, typos …)は
-# 黙ってドリフトする。これがその欠けた監視役。
-#
-# `mise outdated --bump` は各ピンを「ピンを超えた最新」と比較する(ピン内の patch ではなく)。
-# bump が非 null のものだけを対象にする(ピン内 patch は `mise install` に任せる)。
+# Watch whether mise tool pins (mise.toml) have fallen behind latest — the gap Dependabot
+# can't see. Dependabot covers nuget and github-actions but not the mise ecosystem, so pinned
+# dev/CI toolchain (dotnet, just, lefthook, committed, actionlint, typos ...) drifts silently.
+# `mise outdated --bump` compares each pin to the latest beyond the pin (not in-pin patch);
+# only bump != null is actionable (in-pin patch is left to `mise install`).
 name: mise-outdated
 
 on:
   schedule:
-    - cron: "17 5 * * 1" # 毎週月曜 05:17 UTC(他の週次ジョブとずらす)
+    - cron: "17 5 * * 1" # Monday 05:17 UTC (offset from other weekly jobs)
   workflow_dispatch:
 
 permissions:
-  contents: read # mise.toml の読み取り
-  issues: write # mise-outdated 追跡 issue の開閉
+  contents: read # read mise.toml
+  issues: write # open/close the mise-outdated tracking issue
 
 jobs:
   outdated:
@@ -26,8 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      # install: false — レジストリに最新版を問い合わせるだけなので mise バイナリだけ要る。
-      # 全ピンツールの provision(cargo: バックエンドはソースビルド)はバージョン確認には無駄。
+      # install: false — only the mise binary is needed to query registries for latest;
+      # provisioning every pinned tool (cargo: backends build from source) is wasted here.
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
           install: false
@@ -36,11 +33,11 @@ jobs:
         id: check
         shell: bash
         run: |
-          # --bump: ピンを超えた最新。--local: このリポジトリの mise.toml のみ(グローバル設定は見ない)。
-          # 更新があっても exit 0。
+          # --bump: latest beyond the pin. --local: this repo's mise.toml only (ignore global).
+          # Exits 0 even when updates exist.
           mise outdated --bump --local --json > outdated.json || true
           echo "Raw mise outdated --bump --local:"; cat outdated.json
-          # ピン自体が遅れているツール(bump != null)だけ残す。ピン内 patch は bump == null。
+          # Keep only tools whose pin is behind (bump != null); in-pin patch is bump == null.
           drift=$(jq '[to_entries[] | select(.value.bump != null)] | length' outdated.json)
           echo "drift=$drift" >> "$GITHUB_OUTPUT"
           {

@@ -1,28 +1,37 @@
 # Repository rulesets (version-controlled branch protection)
 
-これらの JSON は、このリポジトリの分岐保護の「唯一の真実」です。GitHub は自動適用しないので、
-手動(または一度きり)で `gh api` を使って投入します。設定を UI で手作業せず、レビュー可能な差分として
-版管理するための仕組みです。
+`main`'s branch protection is expressed as **rulesets** whose JSON definitions are
+the source of truth here (not classic branch protection / UI edits). GitHub does not
+auto-apply them from the tree; apply them once with `gh` (needs admin).
 
-- `protect-default-branch.json` — 既定ブランチ(main)を保護: PR 必須 / squash マージのみ / linear history /
-  会話(レビュースレッド)解決必須 / force-push・削除禁止 / 必須ステータスチェック **`ci-required`** と
-  **`analyze`**(CodeQL)を strict(最新コミットで再実行)で要求。ソロ運用のため必須承認数は 0。
-- `require-signed-commits.json` — `gh-pages` を除く全ブランチで署名済みコミットを要求。release-please は
-  GitHub App / Contents API 経由でコミットするため GitHub 署名が付き、この規則を満たす。
+| File | Target | Enforces |
+|---|---|---|
+| `protect-default-branch.json` | `main` | PR required, `ci-required` + `analyze` (CodeQL) status checks (strict), linear history, conversation resolution, no force-push/deletion, no admin bypass, 0 required approvals (solo self-merge) |
+| `require-signed-commits.json` | all branches but `gh-pages` | signed commits (release-please commits via the GitHub App / Contents API, which are GitHub-signed) |
 
-## 適用
+## Apply
 
 ```sh
-# 新規作成(初回)
+# New ruleset → POST; updating an existing one → PUT .../rulesets/<id>
 gh api --method POST repos/P4suta/typing-sound/rulesets \
   --input .github/rulesets/protect-default-branch.json
 gh api --method POST repos/P4suta/typing-sound/rulesets \
   --input .github/rulesets/require-signed-commits.json
 
-# 既存を更新するとき(ruleset ID を控えておく)
-gh api repos/P4suta/typing-sound/rulesets            # 一覧して ID を確認
+# Update: list to find the ID, then PUT
+gh api repos/P4suta/typing-sound/rulesets
 gh api --method PUT repos/P4suta/typing-sound/rulesets/<ID> \
   --input .github/rulesets/protect-default-branch.json
 ```
 
-CI のジョブ名を変えたら、`required_status_checks` の `context`(`ci-required` / `analyze`)も揃えること。
+## Verify
+
+```sh
+gh api repos/P4suta/typing-sound/rules/branches/main --jq '[.[].type] | unique'
+# → deletion, non_fast_forward, pull_request, required_linear_history,
+#   required_signatures, required_status_checks
+```
+
+After any UI/`gh` change, re-export the ruleset back into this directory so the tree
+stays canonical. If a CI job name changes, keep `required_status_checks` contexts
+(`ci-required`, `analyze`) in sync.

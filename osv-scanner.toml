@@ -1,11 +1,11 @@
-# osv-scanner の受理済み脆弱性エスケープハッチ。
+# osv-scanner accepted-vulnerability escape hatch.
 #
-# sbom-scan composite(release/nightly のゲート)と sbom-monitor.yml(公開済み SBOM の週次再スキャン)が
-# この設定を参照する。修正不能 / 受理した脆弱性のみをここに列挙する。各エントリは必ず
-# 「id」「理由(なぜ許容できるか)」「見直し日 ignoreUntil」を書くこと。既定は空(=すべて失敗)。
+# Read by the sbom-scan composite (release/nightly gate) and sbom-monitor.yml (weekly rescan of the
+# published SBOM). List only unfixable/accepted vulnerabilities. Every entry must have an id, a reason
+# (why it's acceptable), and a review date (ignoreUntil). Empty by default (= everything fails).
 #
-# 例:
+# Example:
 # [[IgnoredVulns]]
 # id = "GHSA-xxxx-xxxx-xxxx"
 # ignoreUntil = "2026-12-31"
-# reason = "到達不能なコードパス。次のメジャー更新で解消予定。"
+# reason = "Unreachable code path. To be resolved in the next major update."

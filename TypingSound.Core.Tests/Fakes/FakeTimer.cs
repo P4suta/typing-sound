@@ -3,8 +3,8 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Core.Tests.Fakes;
 
 /// <summary>
-/// テスト用の単発タイマー。実時間を使わず、<see cref="Elapse"/> で手動発火する。
-/// <see cref="Schedule"/> は前回の予約を上書きする(本物と同じデバウンス挙動)。
+/// Test one-shot timer that uses no real time and fires manually via <see cref="Elapse"/>.
+/// <see cref="Schedule"/> overwrites the previous reservation (same debounce behavior as the real one).
 /// </summary>
 internal sealed class FakeTimer : ISoundTimer
 {
@@ -25,7 +25,7 @@ internal sealed class FakeTimer : ISoundTimer
 
     public void Cancel() => _pending = null;
 
-    /// <summary>予約中のコールバックを 1 回だけ発火する(時間経過の模擬)。</summary>
+    /// <summary>Fires the pending callback once (simulates time passing).</summary>
     public void Elapse()
     {
         Action? callback = _pending;

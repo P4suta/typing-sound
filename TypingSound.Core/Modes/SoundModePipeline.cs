@@ -6,16 +6,16 @@ using TypingSound.Core.Triggers;
 namespace TypingSound.Core.Modes;
 
 /// <summary>
-/// 3 軸(トリガ/セレクタ/再生方針)を束ねた、クリップ方式の <see cref="IActiveMode"/>。
-/// キー押下 → トリガ → (発火時) セレクタ → 再生方針、という配線を内部で完結させる。
-/// 破棄するとトリガ(タイマー等のリソース)も破棄される。
+/// Clip-based <see cref="IActiveMode"/> that binds three axes (trigger/selector/playback policy).
+/// Wires key press -> trigger -> (on fire) selector -> playback policy internally. Disposing also
+/// disposes the trigger (and its timer resources).
 /// </summary>
 public sealed class SoundModePipeline : IActiveMode
 {
-    /// <summary>3 軸を指定してパイプラインを生成し、トリガの発火を内部で再生へ配線する。</summary>
-    /// <param name="trigger">軸A: いつ鳴らすか。</param>
-    /// <param name="selector">軸B: どのクリップを鳴らすか。</param>
-    /// <param name="playback">軸C: どう鳴らすか。</param>
+    /// <summary>Creates a pipeline from the three axes and wires trigger firing to playback.</summary>
+    /// <param name="trigger">Axis A: when to play.</param>
+    /// <param name="selector">Axis B: which clip to play.</param>
+    /// <param name="playback">Axis C: how to play.</param>
     public SoundModePipeline(ITriggerStrategy trigger, ISoundSelector selector, IPlaybackPolicy playback)
     {
         ArgumentNullException.ThrowIfNull(trigger);
@@ -27,13 +27,13 @@ public sealed class SoundModePipeline : IActiveMode
         Trigger.Fired += OnFired;
     }
 
-    /// <summary>軸A: いつ鳴らすか。</summary>
+    /// <summary>Axis A: when to play.</summary>
     public ITriggerStrategy Trigger { get; }
 
-    /// <summary>軸B: どのクリップを鳴らすか。</summary>
+    /// <summary>Axis B: which clip to play.</summary>
     public ISoundSelector Selector { get; }
 
-    /// <summary>軸C: どう鳴らすか。</summary>
+    /// <summary>Axis C: how to play.</summary>
     public IPlaybackPolicy Playback { get; }
 
     /// <inheritdoc/>

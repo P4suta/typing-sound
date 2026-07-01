@@ -1,8 +1,8 @@
-# テストプロジェクト固有のアナライザ調整(本体の規則は緩めない)。
+# Test project-specific analyzer tweaks (core rules stay strict).
 [*.cs]
-dotnet_diagnostic.CA1707.severity = none   # テストメソッド名のアンダースコア(Method_Scenario_Expected)を許可
-dotnet_diagnostic.CA1515.severity = none   # xUnit の発見のためテストクラスは public
-dotnet_diagnostic.CS1591.severity = none   # テストにドキュメントは不要
-dotnet_diagnostic.CA2000.severity = none   # 短命なテスト内の IDisposable 生成に破棄を強制しない
-dotnet_diagnostic.CA1861.severity = none   # アサーション内の定数配列リテラルを許可
-dotnet_diagnostic.SA0001.severity = none   # テストは doc 生成 OFF のため XML コメント解析は無効でよい
+dotnet_diagnostic.CA1707.severity = none   # allow underscores in test names (Method_Scenario_Expected)
+dotnet_diagnostic.CA1515.severity = none   # test classes are public for xUnit discovery
+dotnet_diagnostic.CS1591.severity = none   # tests need no documentation
+dotnet_diagnostic.CA2000.severity = none   # don't force disposal of short-lived IDisposable in tests
+dotnet_diagnostic.CA1861.severity = none   # allow constant array literals in assertions
+dotnet_diagnostic.SA0001.severity = none   # doc generation off, so XML comment analysis can stay off

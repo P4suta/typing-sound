@@ -50,25 +50,10 @@ after the artifact expires.
 | Posture monitoring | OpenSSF Scorecard (weekly, SARIF to the Security tab). See [SCORECARD.md](SCORECARD.md) |
 | Reproducible build | `ContinuousIntegrationBuild=true` in CI (source-path normalization; `Deterministic` is the SDK default) |
 
-## SBOMs are consumed, not just attached (ADR-0005)
-
-The SBOM isn't a write-only release artifact — `osv-scanner` (OSV.dev) reads it at
-two points:
-
-1. **Build gate** — `release.yml`'s `build` job scans `app.cdx.json` right after
-   generating it, before sign/publish, and `nightly.yml` scans before upload. A
-   known-vulnerable dependency in the resolved shipped closure fails the build. The
-   SBOM is the only view of the resolved NuGet graph.
-2. **Shipped-release re-scan** — `sbom-monitor.yml` runs weekly, downloads the
-   **latest release's** attested SBOM, and re-scans it against the current OSV DB.
-   This is the only check covering *what users already downloaded*: a CVE disclosed
-   after a release is invisible to source-tree scanners (which only see HEAD).
-
-When the weekly re-scan finds something it opens (or updates) a single issue
-labelled **`sbom-vuln`**; once the affected release is clean again the issue is
-auto-closed. With no published release yet the job is a clean no-op and activates on
-the first release. Accepted/unfixable advisories go in **`osv-scanner.toml`** at the
-repo root (honoured by both the gate and the monitor).
+The SBOM is consumed, not just attached: `osv-scanner` reads it as a release build
+gate and re-scans the latest release's SBOM weekly (`sbom-monitor.yml`), reporting
+via a single `sbom-vuln` issue. Rationale and details:
+[ADR-0005](adr/0005-sbom-consumed-by-osv-scanner.md).
 
 ## Notes
 

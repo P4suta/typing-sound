@@ -1,12 +1,12 @@
-# テキストは自動判定し、リポジトリ内では LF に正規化する(環境差による diff ノイズを防ぐ)。
+# Auto-detect text and normalize to LF in the repo (avoids cross-platform diff noise).
 * text=auto eol=lf
 
-# Windows 専用のスクリプトは CRLF を維持。
+# Windows-only scripts keep CRLF.
 *.ps1 text eol=crlf
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
-# バイナリ資産(EOL 変換しない)。
+# Binary assets (no EOL conversion).
 *.wav binary
 *.png binary
 *.ico binary

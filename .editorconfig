@@ -1,11 +1,11 @@
-# TypingSound — コーディング規約 / アナライザ重大度
-# 方針: 「最初から超厳格」。価値ある規則はエラーに寄せ、モダン C# と衝突する古い StyleCop 規則だけ無効化する。
+# TypingSound — code style / analyzer severities.
+# Policy: strict from the start. Valuable rules are errors; only legacy StyleCop rules that
+# clash with modern C# are disabled.
 root = true
 
 [*]
 charset = utf-8
-# リポジトリは .gitattributes(eol=lf)で LF に正規化される。dotnet format と齟齬が出ないよう
-# ここも lf に合わせる(以前は crlf で、CI の整形チェックが全 .cs を誤検出していた)。
+# Match .gitattributes (eol=lf) so dotnet format stays consistent.
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
@@ -19,7 +19,7 @@ indent_size = 2
 indent_size = 2
 
 [*.cs]
-# --- 言語スタイル(IDExxxx)。EnforceCodeStyleInBuild=true でビルド時にも効く。 ---
+# --- Language style (IDExxxx). Enforced at build time via EnforceCodeStyleInBuild=true. ---
 csharp_style_namespace_declarations = file_scoped:error
 csharp_using_directive_placement = outside_namespace:error
 dotnet_sort_system_directives_first = true
@@ -35,7 +35,7 @@ dotnet_style_readonly_field = true:warning
 csharp_prefer_simple_using_statement = true:suggestion
 csharp_style_prefer_primary_constructors = false:suggestion
 
-# --- 命名規則: private フィールドは _camelCase を必須にする ---
+# --- Naming: private fields must be _camelCase ---
 dotnet_naming_rule.private_fields_underscore.severity = error
 dotnet_naming_rule.private_fields_underscore.symbols = private_fields
 dotnet_naming_rule.private_fields_underscore.style = underscore_camel
@@ -44,38 +44,38 @@ dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_style.underscore_camel.capitalization = camel_case
 dotnet_naming_style.underscore_camel.required_prefix = _
 
-# --- StyleCop: モダン C# と衝突する規則を無効化 ---
-dotnet_diagnostic.SA1101.severity = none   # this. プレフィックス不要
-dotnet_diagnostic.SA1200.severity = none   # using は namespace の外でよい
-dotnet_diagnostic.SA1309.severity = none   # _ 始まりフィールドを許可(命名規則側で別途強制)
-dotnet_diagnostic.SA1633.severity = none   # ファイルヘッダ不要
-dotnet_diagnostic.SA1413.severity = none   # 複数行初期化子の末尾カンマ強制はしない
+# --- StyleCop: disable rules that clash with modern C# ---
+dotnet_diagnostic.SA1101.severity = none   # no this. prefix
+dotnet_diagnostic.SA1200.severity = none   # usings may sit outside the namespace
+dotnet_diagnostic.SA1309.severity = none   # allow _-prefixed fields (enforced by the naming rule)
+dotnet_diagnostic.SA1633.severity = none   # no file header
+dotnet_diagnostic.SA1413.severity = none   # no trailing comma in multi-line initializers
 
-# --- StyleCop: ドキュメント系は無効化。公開 API ドキュメントは Core の CS1591 で担保する ---
-dotnet_diagnostic.SA1600.severity = none   # 要素ドキュメント必須(→ CS1591 で代替)
+# --- StyleCop: documentation rules off; public API docs are covered by CS1591 in Core ---
+dotnet_diagnostic.SA1600.severity = none   # element documentation (covered by CS1591)
 dotnet_diagnostic.SA1601.severity = none
 dotnet_diagnostic.SA1602.severity = none
 dotnet_diagnostic.SA1604.severity = none
 dotnet_diagnostic.SA1605.severity = none
 dotnet_diagnostic.SA1606.severity = none
-dotnet_diagnostic.SA1611.severity = none   # パラメータ doc 必須にしない
-dotnet_diagnostic.SA1615.severity = none   # 戻り値 doc 必須にしない
+dotnet_diagnostic.SA1611.severity = none   # don't require param docs
+dotnet_diagnostic.SA1615.severity = none   # don't require return docs
 dotnet_diagnostic.SA1618.severity = none
-dotnet_diagnostic.SA1623.severity = none   # プロパティ doc の定型文(Gets/Sets)強制を外す
-dotnet_diagnostic.SA1629.severity = none   # doc 末尾ピリオド強制を外す(日本語ドキュメント対応)
+dotnet_diagnostic.SA1623.severity = none   # don't require Gets/Sets boilerplate in property docs
+dotnet_diagnostic.SA1629.severity = none   # don't require doc sentences to end with a period
 dotnet_diagnostic.SA1642.severity = none
 
-# --- CA: 前提がプロジェクト全体で categorically 当てはまらない規則のみ、理由付きでポリシー緩和する ---
-dotnet_diagnostic.CA1303.severity = none   # リテラル文字列のローカライズ要求。本アプリは非ローカライズ(日本語固定)のため全体で不要。
-dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait(false) 要求。UI スレッド継続が必須の WinUI アプリには全体で不適。
-dotnet_diagnostic.SA0001.severity = none   # doc 生成 OFF のプロジェクトでの XML コメント解析無効通知(Core は doc 生成 ON で別途有効)。
+# --- CA: relax only rules whose premise doesn't categorically hold project-wide, with a reason ---
+dotnet_diagnostic.CA1303.severity = none   # localized-string requirement; this app is not localized, so N/A project-wide.
+dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait(false); unsuitable for a WinUI app that must stay on the UI thread.
+dotnet_diagnostic.SA0001.severity = none   # XML comment analysis off where doc generation is off (Core enables it separately).
 
-# 以下は blanket 無効化しない。該当箇所にのみ理由付き [SuppressMessage] を置き、どこで・なぜ許容したかをコードに残す:
-#   CA1031(一般 Exception catch) … 例外を越えさせてはならない境界(フック/タイマー Tick/音読込)でのみ。
-#   CA1003(Action イベント)       … パラメータなしの内部シグナルでのみ。
-#   CA1716(予約語衝突 Select/Stop/Next) … スタンドアロンで他言語相互運用しない該当 API でのみ。
-#   CA5394(非暗号乱数)            … 音選択という非セキュリティ用途の乱数生成でのみ。
+# Not blanket-disabled. Use a targeted [SuppressMessage] with a reason at each site instead:
+#   CA1031 (catch general Exception) — only at boundaries where exceptions must not escape (hook / timer Tick / sound load).
+#   CA1003 (Action-typed events)     — only for parameterless internal signals.
+#   CA1716 (reserved-word clash Select/Stop/Next) — only on standalone APIs with no cross-language interop.
+#   CA5394 (non-crypto RNG)          — only for non-security random sound selection.
 
 [*Tests*.cs]
-# テストのドキュメント要求はさらに不要(Core 以外は doc 生成 OFF のため実質効かないが明示)
+# Tests need no documentation.
 dotnet_diagnostic.CS1591.severity = none

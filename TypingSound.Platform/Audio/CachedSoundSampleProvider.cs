@@ -2,7 +2,7 @@ using NAudio.Wave;
 
 namespace TypingSound.Platform.Audio;
 
-/// <summary>常駐済み <see cref="CachedSound"/> を 1 回再生するためのサンプルプロバイダ。</summary>
+/// <summary>Sample provider that plays an in-memory <see cref="CachedSound"/> once.</summary>
 internal sealed class CachedSoundSampleProvider : ISampleProvider
 {
     private readonly CachedSound _sound;

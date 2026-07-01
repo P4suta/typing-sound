@@ -1,10 +1,8 @@
-# nightly — main の先端から未署名の配布物を作り、14 日保持の GitHub Actions artifact として出す
-# (Release では出さない: Releases 一覧を汚さず Immutable Releases も回避)。Authenticode 署名以外の
-# サプライチェーン来歴(SBOM + osv ゲート + 鍵レス provenance/SBOM attestation)はフルで付ける
-# (ADR-0004: 配布するすべての成果物が来歴を持つ。署名は stable 限定)。
-#
-# バージョンは X.Y.Z-nightly.<date>+g<sha>(Directory.Build.targets が Channel=nightly で整形)。
-# 検証: gh attestation verify <zip> --repo P4suta/typing-sound
+# nightly — build an unsigned dist from main's tip as a 14-day GitHub Actions artifact (not
+# a Release: keeps the Releases list clean, avoids Immutable Releases). Full supply-chain
+# provenance except Authenticode (SBOM + osv gate + keyless provenance/SBOM attestation);
+# signing is stable-only (ADR-0004). Version X.Y.Z-nightly.<date>+g<sha> (Channel=nightly).
+# Verify: gh attestation verify <zip> --repo P4suta/typing-sound
 
 name: nightly
 
@@ -13,7 +11,7 @@ on:
     - cron: "47 16 * * *" # 01:47 JST
   workflow_dispatch:
 
-# "最新" は 1 本だけ。走行中の古い nightly はキャンセルしてよい。
+# Keep one "latest". A running older nightly may be cancelled.
 concurrency:
   group: nightly
   cancel-in-progress: true
@@ -26,15 +24,15 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
-      id-token: write # 鍵レス Sigstore attestation の OIDC
+      id-token: write # OIDC for keyless Sigstore attestation
       attestations: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 0 # freshness ゲートが直近 24h のコミット有無を見るため履歴が要る
+          fetch-depth: 0 # freshness gate needs history to check for commits in the last 24h
 
-      # 鮮度ゲート: 手動 dispatch は常にビルド。定期実行は main が直近 24h で動いた時だけビルドする
-      # (無ければ build=false + ::notice:: で以降のステップを全部スキップ)。
+      # Freshness gate: manual dispatch always builds; scheduled runs build only if main
+      # moved in the last 24h (else build=false + ::notice:: skips every later step).
       - name: Decide whether to build
         id: freshness
         shell: bash
@@ -56,8 +54,8 @@ jobs:
         with:
           install: true
 
-      # 日付と短縮 SHA を確定。環境変数は MSBuild プロパティとして読まれるので、以降のビルドで
-      # Directory.Build.targets が Channel=nightly / NightlyDate / SourceRevision を拾う。
+      # Fix the date and short SHA. Env vars are read as MSBuild properties, so the build
+      # picks up Channel=nightly / NightlyDate / SourceRevision.
       - name: Stamp nightly build identity
         if: steps.freshness.outputs.build == 'true'
         shell: bash
@@ -98,7 +96,7 @@ jobs:
           subject-path: build/package/TypingSound-nightly.*-win-x64.zip
           sbom-path: build/sbom/app.cdx.json
 
-      # 14 日保持の Actions artifact(Release ではない)。
+      # 14-day Actions artifact (not a Release).
       - name: Upload nightly artifact
         if: steps.freshness.outputs.build == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

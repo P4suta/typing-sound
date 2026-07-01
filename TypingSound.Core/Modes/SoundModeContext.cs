@@ -2,10 +2,10 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSound.Core.Modes;
 
-/// <summary>モードがパイプラインを構築する際に使う実行時サービス一式。</summary>
-/// <param name="Audio">音声出力エンジン。</param>
-/// <param name="Timers">タイマーファクトリ(デバウンス系トリガ用)。</param>
-/// <param name="Random">乱数source(ランダム/シャッフル用)。</param>
+/// <summary>Runtime services a mode uses when building its pipeline.</summary>
+/// <param name="Audio">Audio output engine.</param>
+/// <param name="Timers">Timer factory (for debounce-style triggers).</param>
+/// <param name="Random">Random source (for random/shuffle selection).</param>
 public sealed record SoundModeContext(
     IAudioEngine Audio,
     ITimerFactory Timers,

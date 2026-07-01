@@ -1,30 +1,15 @@
 <Project>
 
-  <!--
-    全プロジェクト共通の品質設定。「最初から超厳格」方針。
-    - 警告はエラー扱い(妥協を溜めない)。
-    - .NET アナライザを最大(latest-all)で有効化。
-    - コードスタイル違反もビルドで検出(EnforceCodeStyleInBuild)。
-    - StyleCop / Roslynator を追加。conflict するスタイル規則は .editorconfig で個別に調整。
-    規則の重大度・有効/無効は .editorconfig に集約する(ここでは付けるだけ)。
-  -->
+  <!-- Shared strict-quality settings. Rule severities live in .editorconfig. -->
   <PropertyGroup>
-    <!--
-      バージョンの単一の源。release-please が Release PR でこの行を書き換える
-      (generic updater は "x-release-please-version" コメント行の version を差し替える)。
-      手で編集しない。全アセンブリ(TypingSound.exe / TypingSound.App.exe / Core)へ焼き込まれる。
-    -->
+    <!-- Single source of version; release-please rewrites this line via the x-release-please-version marker. Do not hand-edit. -->
     <Version>0.1.0</Version> <!-- x-release-please-version -->
 
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 
-    <!--
-      NuGet の脆弱性監査を有効化(推移的依存も対象)。ただし NU19xx は警告のままにする
-      (TreatWarningsAsErrors=true でローカルビルドが突然壊れないように)。実際のゲートは
-      CI の nuget-audit.yml (dotnet list package の vulnerable チェック) が担う。
-    -->
+    <!-- Vulnerability audit incl. transitive deps; keep NU19xx as warnings so TreatWarningsAsErrors doesn't break local builds (CI nuget-audit.yml is the gate). -->
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditMode>all</NuGetAuditMode>
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
@@ -34,7 +19,7 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
 
-    <!-- 自動生成ファイル(*.g.cs / XAML 等)はアナライザ対象外にして誤検出を防ぐ。 -->
+    <!-- Exclude generated files (*.g.cs / XAML) from analyzers to avoid false positives. -->
     <GeneratedCodeAnalysisSeverity>None</GeneratedCodeAnalysisSeverity>
   </PropertyGroup>
 

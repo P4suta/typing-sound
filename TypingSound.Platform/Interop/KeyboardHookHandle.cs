@@ -3,8 +3,8 @@ using Microsoft.Win32.SafeHandles;
 namespace TypingSound.Platform.Interop;
 
 /// <summary>
-/// 低レベルキーボードフック(HHOOK)の安全ハンドル。破棄/ファイナライズ時に確実に
-/// <see cref="NativeMethods.UnhookWindowsHookEx"/> を呼ぶ(手動ファイナライザを書かずに解放を保証する)。
+/// Safe handle for the low-level keyboard hook (HHOOK). Reliably calls
+/// <see cref="NativeMethods.UnhookWindowsHookEx"/> on dispose/finalize, guaranteeing release without a manual finalizer.
 /// </summary>
 internal sealed class KeyboardHookHandle : SafeHandleZeroOrMinusOneIsInvalid
 {

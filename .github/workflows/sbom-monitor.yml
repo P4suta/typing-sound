@@ -1,22 +1,19 @@
-# 最新の公開 Release の SBOM を、今日の OSV.dev DB に対して再スキャンする。
-#
-# これは「今の source tree」ではなく「既に出荷したもの」を見る唯一のサプライチェーンチェック:
-# NuGetAudit / Dependabot はいずれも HEAD を見るので、リリース後に開示された CVE は、ユーザーが
-# 既に持っているバイナリについて見逃される。Release の CycloneDX SBOM(凍結・attest 済み)は
-# 「出荷済みの vX.Y.Z は影響を受けるか?」に答えるための manifest そのもの(ADR-0005)。
-#
-# 初回リリースまで休眠: Release(または SBOM 資産)が無ければ notice を出して exit 0 し、リリースが
-# 出れば自動で有効化される。
+# Re-scan the latest published Release's SBOM against today's OSV.dev DB. The only
+# supply-chain check looking at what was already shipped rather than the current source
+# tree: NuGetAudit / Dependabot both look at HEAD, so CVEs disclosed after a release are
+# missed for the binaries users already hold. The Release's frozen, attested CycloneDX SBOM
+# answers "is shipped vX.Y.Z affected?" (ADR-0005). Dormant until the first release: with no
+# Release (or no SBOM asset) it prints a notice and exits 0.
 name: sbom-monitor
 
 on:
   schedule:
-    - cron: "7 5 * * 1" # 毎週月曜 05:07 UTC(codeql/scorecard/nuget-audit の cron とずらす)
+    - cron: "7 5 * * 1" # Monday 05:07 UTC (offset from codeql/scorecard/nuget-audit)
   workflow_dispatch:
 
 permissions:
-  contents: read # Release の読み取り + SBOM 資産のダウンロード
-  issues: write # sbom-vuln 追跡 issue の開閉
+  contents: read # read Release + download SBOM assets
+  issues: write # open/close the sbom-vuln tracking issue
 
 jobs:
   rescan:
@@ -25,7 +22,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      # checkout は osv-scanner.toml(受理済み脆弱性の無視リスト)のためだけ。
+      # checkout only for osv-scanner.toml (accepted-vulnerability ignore list).
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Locate latest release + download its SBOMs
@@ -58,9 +55,9 @@ jobs:
         id: scan
         shell: bash
         run: |
-          # 落とした各 SBOM をスキャン(-L は .cdx.json 名で CycloneDX を判定)。osv-scanner の
-          # 終了コード: 0 = clean, 1 = 脆弱性/ライセンス検出, 128 = パッケージ無し。set -e を踏まず
-          # 捕捉してから分岐する。
+          # Scan each downloaded SBOM (-L detects CycloneDX from the .cdx.json name).
+          # osv-scanner exit codes: 0 = clean, 1 = vuln/license found, 128 = no packages.
+          # Capture the code (avoid set -e) and branch on it.
           args=(); for f in sbom/*.cdx.json; do args+=(-L "$f"); done
           code=0
           osv-scanner scan source "${args[@]}" --config osv-scanner.toml \

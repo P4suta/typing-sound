@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TypingSound — 心地よい打鍵音をあなたのキーボードに</title>
-  <meta name="description" content="キーを打つと心地よい音が鳴る、Windows 常駐型のタイピング・サウンドアプリ。インストール不要のポータブル版。" />
+  <title>TypingSound — pleasant keystroke sounds for your keyboard</title>
+  <meta name="description" content="A Windows tray app that plays a pleasant sound on every keystroke. Portable, no install." />
   <link rel="icon" href="favicon.png" type="image/png" />
   <meta property="og:title" content="TypingSound" />
-  <meta property="og:description" content="キーを打つと心地よい音が鳴る、Windows 常駐型のタイピング・サウンドアプリ。" />
+  <meta property="og:description" content="A Windows tray app that plays a pleasant sound on every keystroke." />
   <meta property="og:type" content="website" />
   <style>
     :root {
@@ -36,7 +36,7 @@
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--fg);
       line-height: 1.7;
@@ -100,62 +100,62 @@
 <body>
   <div class="wrap">
     <header>
-      <img class="logo" src="icon.png" alt="TypingSound アイコン" />
+      <img class="logo" src="icon.png" alt="TypingSound icon" />
       <h1>TypingSound</h1>
-      <p class="tagline">キーを打つと心地よい音が鳴る、Windows 常駐型のタイピング・サウンドアプリ。タイプライターのように打鍵音を、Enter で復帰ベルを。</p>
+      <p class="tagline">A Windows tray app that plays a pleasant sound on every keystroke — typewriter keystrokes, with a return bell on Enter.</p>
       <div class="cta">
-        <a class="btn btn-primary" href="https://github.com/P4suta/typing-sound/releases/latest">⬇ ダウンロード（最新版）</a>
-        <a class="btn btn-ghost" href="https://github.com/P4suta/typing-sound">GitHub で見る</a>
+        <a class="btn btn-primary" href="https://github.com/P4suta/typing-sound/releases/latest">⬇ Download (latest)</a>
+        <a class="btn btn-ghost" href="https://github.com/P4suta/typing-sound">View on GitHub</a>
       </div>
-      <p class="note">Windows 11 / インストール不要・ポータブル / 管理者権限不要</p>
+      <p class="note">Windows 11 / portable, no install / no admin rights</p>
     </header>
 
     <section>
-      <h2>特長</h2>
+      <h2>Features</h2>
       <div class="features">
         <div class="feature">
           <span class="emoji">⌨️</span>
-          <h3>タイプライターモード</h3>
-          <p>打鍵ごとに打鍵音、Enter で行頭復帰のベル。打っているだけで気持ちいい。</p>
+          <h3>Typewriter mode</h3>
+          <p>A keystroke sound on every key, a carriage-return bell on Enter. Satisfying just to type.</p>
         </div>
         <div class="feature">
           <span class="emoji">📦</span>
-          <h3>ポータブル</h3>
-          <p>ランタイム同梱の self-contained 版。展開してダブルクリックするだけ。フォルダごと持ち運べます。</p>
+          <h3>Portable</h3>
+          <p>Self-contained with the runtime bundled. Unzip, double-click, done. Carry the whole folder anywhere.</p>
         </div>
         <div class="feature">
           <span class="emoji">🔇</span>
-          <h3>軽量・常駐</h3>
-          <p>システムトレイに静かに常駐。不要な重量級コンポーネントはビルド時に除去済み。</p>
+          <h3>Light &amp; resident</h3>
+          <p>Sits quietly in the system tray. Unnecessary heavy components are stripped at build time.</p>
         </div>
         <div class="feature">
           <span class="emoji">🔒</span>
-          <h3>プライバシー</h3>
-          <p>どのキーを押したかは扱いません。記録も送信もせず、ネットワーク通信もありません。</p>
+          <h3>Privacy</h3>
+          <p>Never handles which key you pressed. Nothing recorded, nothing sent, no network access.</p>
         </div>
       </div>
     </section>
 
     <section>
-      <h2>使い方</h2>
+      <h2>Getting started</h2>
       <ol class="steps">
-        <li><a href="https://github.com/P4suta/typing-sound/releases/latest">最新リリース</a>から zip をダウンロード。</li>
-        <li>好きな場所に展開する。</li>
-        <li><code>TypingSound.exe</code> をダブルクリック。トレイに常駐し、すぐ鳴り始めます。</li>
+        <li>Download the zip from the <a href="https://github.com/P4suta/typing-sound/releases/latest">latest release</a>.</li>
+        <li>Unzip it anywhere you like.</li>
+        <li>Double-click <code>TypingSound.exe</code>. It lives in the tray and starts playing right away.</li>
       </ol>
     </section>
 
     <section>
-      <h2>ソースからビルド</h2>
-      <p>.NET SDK と <a href="https://github.com/casey/just">just</a> は <a href="https://mise.jdx.dev/">mise</a> で宣言的に管理しています。</p>
-      <pre>mise install        # mise.toml に従い dotnet SDK と just を導入
-just build-all      # ソリューション全体をビルド
-just test           # Core 層のユニットテスト
-just dist           # 配布レイアウト dist/TypingSound/ を作成</pre>
+      <h2>Build from source</h2>
+      <p>The .NET SDK and <a href="https://github.com/casey/just">just</a> are managed declaratively with <a href="https://mise.jdx.dev/">mise</a>.</p>
+      <pre>mise install        # install the dotnet SDK and just per mise.toml
+just build-all      # build the whole solution
+just test           # Core unit tests
+just dist           # create the distribution layout dist/TypingSound/</pre>
     </section>
 
     <footer>
-      <p>打鍵音 / ベル音: <a href="https://mixkit.co">Mixkit</a>（Mixkit Free License）｜ ソースコード: MIT License</p>
+      <p>Keystroke / bell sounds: <a href="https://mixkit.co">Mixkit</a> (Mixkit Free License) · Source code: MIT License</p>
       <p>© 2026 P4suta · <a href="https://github.com/P4suta/typing-sound">github.com/P4suta/typing-sound</a></p>
     </footer>
   </div>

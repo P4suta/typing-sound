@@ -4,18 +4,19 @@ using TypingSound.Core.Modes;
 namespace TypingSound.Core;
 
 /// <summary>
-/// パイプラインの司令塔。キー押下(<see cref="NotifyKeyPressed"/>)を起動中のモード実体へ流し、
-/// モード切替(<see cref="SwitchTo"/>)も担う。全メソッドは単一スレッド(UI スレッド)から呼ばれる前提で、
-/// ロックを持たない。キー押下は同期インラインで処理し、押鍵から発音までの遅延を最小化する。
+/// Pipeline coordinator. Routes key presses (<see cref="NotifyKeyPressed"/>) to the running mode
+/// instance and handles mode switching (<see cref="SwitchTo"/>). All methods assume a single (UI)
+/// thread and hold no locks. Key presses are handled synchronously inline to minimize the delay from
+/// keystroke to sound.
 /// </summary>
 public sealed class TypingSoundEngine : IDisposable
 {
     private readonly SoundModeContext _context;
     private IActiveMode _active;
 
-    /// <summary>実行時サービスと初期モードを指定して生成する。</summary>
-    /// <param name="context">音声/タイマー/乱数/連続声部などの実行時サービス。</param>
-    /// <param name="initialMode">起動時のモード。</param>
+    /// <summary>Creates the engine with runtime services and an initial mode.</summary>
+    /// <param name="context">Runtime services: audio, timers, random, etc.</param>
+    /// <param name="initialMode">Mode active at startup.</param>
     public TypingSoundEngine(SoundModeContext context, ISoundMode initialMode)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -25,15 +26,13 @@ public sealed class TypingSoundEngine : IDisposable
         _active = initialMode.Activate(context);
     }
 
-    /// <summary>現在のモード。</summary>
+    /// <summary>Current mode.</summary>
     public ISoundMode CurrentMode { get; private set; }
 
-    /// <summary>キーが 1 つ押されたことを通知する(分類のみ伴う)。</summary>
-    /// <param name="category">押下キーの分類。</param>
+    /// <summary>Notifies that a single key was pressed (classification only).</summary>
     public void NotifyKeyPressed(KeyCategory category) => _active.OnKeyPressed(category);
 
-    /// <summary>モードを切り替える。古いモード実体は破棄する。</summary>
-    /// <param name="mode">切り替え先のモード。</param>
+    /// <summary>Switches the mode, disposing the old mode instance.</summary>
     public void SwitchTo(ISoundMode mode)
     {
         ArgumentNullException.ThrowIfNull(mode);

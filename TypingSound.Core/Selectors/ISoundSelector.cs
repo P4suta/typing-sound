@@ -2,12 +2,10 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSound.Core.Selectors;
 
-/// <summary>
-/// 軸B:「どのクリップを鳴らすか」を決める戦略。一部はステートフル(シャッフルキュー等)。
-/// </summary>
+/// <summary>Axis B: strategy deciding "which clip to play". Some implementations are stateful (e.g. shuffle queue).</summary>
 public interface ISoundSelector
 {
-    /// <summary>次に鳴らすクリップを選ぶ。鳴らさない場合は <see langword="null"/>。</summary>
-    /// <param name="category">発火契機のキー分類。キーに依らないセレクタは無視してよい。</param>
+    /// <summary>Picks the next clip to play, or <see langword="null"/> to play nothing.</summary>
+    /// <param name="category">Key category that triggered firing; key-agnostic selectors may ignore it.</param>
     ISoundClip? Pick(KeyCategory category);
 }

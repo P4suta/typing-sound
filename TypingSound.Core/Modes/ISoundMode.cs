@@ -1,18 +1,19 @@
 namespace TypingSound.Core.Modes;
 
 /// <summary>
-/// 「モード」の定義。<see cref="Activate"/> で 1 セッション分の <see cref="IActiveMode"/> を生成する。
-/// クリップ方式は 3 軸を <see cref="SoundModePipeline"/> に合成し、連続声部方式は別の <see cref="IActiveMode"/> を返す。
+/// Definition of a "mode". <see cref="Activate"/> creates one <see cref="IActiveMode"/> per session.
+/// The clip-based approach composes three axes into a <see cref="SoundModePipeline"/>; other
+/// approaches return a different <see cref="IActiveMode"/>.
 /// </summary>
 public interface ISoundMode
 {
-    /// <summary>安定した識別子(設定保存・既定選択に使う)。</summary>
+    /// <summary>Stable identifier (used for settings persistence and default selection).</summary>
     string Id { get; }
 
-    /// <summary>UI 表示名。</summary>
+    /// <summary>Display name for the UI.</summary>
     string DisplayName { get; }
 
-    /// <summary>実行時サービスからこのモードの実体を起動する。</summary>
-    /// <param name="context">音声/タイマー/乱数/連続声部などの実行時サービス。</param>
+    /// <summary>Activates a running instance of this mode from runtime services.</summary>
+    /// <param name="context">Runtime services: audio, timers, random, etc.</param>
     IActiveMode Activate(SoundModeContext context);
 }

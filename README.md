@@ -6,109 +6,92 @@
 [![Release](https://img.shields.io/github/v/release/P4suta/typing-sound?sort=semver)](https://github.com/P4suta/typing-sound/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> キーを打つと心地よい音が鳴る、Windows 常駐型のタイピング・サウンドアプリ。
-> タイプライターのように打鍵ごとに音を鳴らし、Enter で行頭復帰のベルを鳴らします。
+> A tray-resident Windows app that plays a sound on every keystroke, like a
+> typewriter, with a carriage-return bell on Enter.
 
-タイプ内容（どのキーを押したか）は一切扱いません。扱うのは「キーが押された」という事実と、その大まかな分類（通常キー / 復帰キーなど）だけです。
+It never handles what you type. It sees only that a key was pressed and its
+rough class (normal key / return key).
 
-## 特長
+## Features
 
-- **タイプライターモード** — 打鍵ごとに打鍵音、Enter で復帰ベル。
-- **ポータブル** — インストール不要。ランタイム同梱の self-contained ビルドで、フォルダごとコピーすれば動きます（管理者権限・開発者モード不要）。
-- **常駐 & 軽量** — システムトレイに常駐。不要な重量級アセンブリ（ML / WinForms 等）はビルド時に除去済み。
-- **既定オーディオデバイス追従** — 出力デバイスの切り替えに追従します。
-- **プライバシー** — キーの内容は記録も送信もしません。ネットワーク通信はありません。
+- **Typewriter mode** — a keystroke sound per key, a return bell on Enter.
+- **Portable** — no install. A self-contained build with the runtime bundled; copy
+  the folder and run (no admin rights or developer mode needed).
+- **Tray-resident & light** — lives in the system tray. Heavy assemblies (ML,
+  WinForms, etc.) are stripped at build time.
+- **Follows the default audio device** — tracks output-device switches.
+- **Private** — key contents are never recorded or sent. No network traffic.
 
-## ダウンロード
+## Download
 
-[**最新リリース**](https://github.com/P4suta/typing-sound/releases/latest) から zip を取得し、展開して `TypingSound.exe` をダブルクリックするだけです。フォルダごと移動・コピーしても動作します。
+Get the zip from the [latest release](https://github.com/P4suta/typing-sound/releases/latest),
+extract it, and double-click `TypingSound.exe`. The folder can be moved or copied
+freely.
 
-ランディングページ: https://P4suta.github.io/typing-sound/
+Landing page: https://P4suta.github.io/typing-sound/
 
-## アーキテクチャ
+## Architecture
 
-このプロジェクトの最優先目標は **抽象化の美しさ** です。プラットフォーム非依存のドメインロジック（`TypingSound.Core`）と、Windows 固有の実装（`TypingSound.Platform` / `TypingSound.App`）を厳密に分離しています。
+Platform-independent domain logic (`TypingSound.Core`) is strictly separated from
+the Windows-specific implementation (`TypingSound.Platform` / `TypingSound.App`).
 
-```
-TypingSound.Core        ドメイン層。OS にもオーディオ実装にも依存しない純粋ロジック。
-├─ Abstractions/        IAudioEngine / ISoundClip / ITimerFactory / IRandomSource ... 境界インターフェース
-├─ Triggers/            軸A「いつ鳴らすか」  EveryKeyTrigger / DebounceTrigger
-├─ Selectors/           軸B「どのクリップを鳴らすか」 Fixed / Random / ShuffleQueue / Typewriter
-├─ Playback/            軸C「どう鳴らすか」  Monophonic / Polyphonic
-├─ Modes/               3 軸を束ねる SoundModePipeline と各モード
-└─ TypingSoundEngine    司令塔。キー押下を起動中モードへ流し、モード切替を担う
+- **`TypingSound.Core`** — domain layer; pure logic with no OS or audio dependency.
+  Sound behaviour decomposes into three orthogonal axes wired by `SoundModePipeline`;
+  a new behaviour is composed by swapping an axis implementation.
 
-TypingSound.Platform    Core の境界インターフェースを Windows 実装で満たすアダプタ層。
-├─ Audio/               NAudio ベースの IAudioEngine / ISoundBank 実装
-└─ Interop/             低レベルキーボードフック（P/Invoke）
+  | Axis | Role | Examples |
+  | --- | --- | --- |
+  | **Trigger** | when to play | `EveryKeyTrigger`, `DebounceTrigger` |
+  | **Selector** | which clip | `FixedSelector`, `RandomSelector`, `ShuffleQueueSelector`, `TypewriterSelector` |
+  | **Playback** | how (voice management) | `MonophonicPolicy`, `PolyphonicPolicy` |
 
-TypingSound.App         WinUI 3 シェル。トレイ常駐 UI、DI 配線、診断/ロギング。
-TypingSound.Launcher    ポータブル配布の入口 exe（self-contained ランチャー）。
-TypingSound.Core.Tests  Core 層の xUnit ユニットテスト（プロパティテスト含む）。
-```
+  ```
+  key press ─▶ Trigger ──(fire)──▶ Selector ──(clip)──▶ Playback ─▶ sound
+  ```
 
-### サウンドの組み立て（3 軸 × パイプライン）
+  `Core` touches timers, randomness, and audio only through abstractions, so tests
+  substitute fakes and verify deterministically.
+- **`TypingSound.Platform`** — Windows adapters satisfying the Core interfaces:
+  NAudio-based audio, and the low-level keyboard hook (P/Invoke).
+- **`TypingSound.App`** — WinUI 3 shell: tray UI, DI wiring, diagnostics/logging.
+- **`TypingSound.Launcher`** — portable entry exe (self-contained launcher).
+- **`TypingSound.Core.Tests`** — xUnit tests for Core (incl. property tests).
 
-音の鳴り方を直交する 3 つの軸に分解し、`SoundModePipeline` が配線します。新しい鳴らし方は、軸の実装を差し替えるだけで合成できます。
+## Build & run
 
-| 軸 | 役割 | 実装例 |
-| --- | --- | --- |
-| **Trigger** | いつ鳴らすか | `EveryKeyTrigger`, `DebounceTrigger` |
-| **Selector** | どのクリップを鳴らすか | `FixedSelector`, `RandomSelector`, `ShuffleQueueSelector`, `TypewriterSelector` |
-| **Playback** | どう鳴らすか（声部管理） | `MonophonicPolicy`, `PolyphonicPolicy` |
-
-```
-キー押下 ─▶ Trigger ──(発火)──▶ Selector ──(クリップ)──▶ Playback ─▶ 発音
-```
-
-`Core` は実時間タイマーも乱数もオーディオ出力も抽象越しにしか触らないため、テストではすべてフェイクに差し替えて決定的に検証できます。
-
-## ビルド & 実行
-
-### 前提
-
-- Windows 11（WinUI 3 / Windows App SDK）
-- [mise](https://mise.jdx.dev/) — .NET SDK と [just](https://github.com/casey/just) を宣言的に管理します（バージョンは `mise.toml` 固定）。
+Requires Windows 11 (WinUI 3 / Windows App SDK) and
+[mise](https://mise.jdx.dev/), which pins the .NET SDK and
+[just](https://github.com/casey/just) via `mise.toml`.
 
 ```sh
-mise install        # mise.toml に従い dotnet SDK と just などを導入
-just setup          # git フック(lefthook: Conventional Commits 検査)を導入
+mise install        # install the pinned dotnet SDK, just, etc.
+just setup          # install git hooks (lefthook: Conventional Commits check)
+just build          # Debug build of the App (x64)
+just run            # build and launch
 ```
 
-### 主なタスク（`just`）
+The .NET SDK is mise-managed and not on the bare PATH — call it through `just`
+(which runs `mise exec -- dotnet`). See the `justfile` for the full task list.
 
-```sh
-just build          # App を Debug ビルド（x64）
-just build-all      # ソリューション全体（テスト/ランチャー含む）をビルド
-just test           # Core のユニットテスト
-just test-cov       # カバレッジ付きテスト（しきい値ゲート）
-just verify         # 整形チェック + 全ビルド + カバレッジ付きテスト（push 前の一括検証）
-just run            # ビルドして起動
-just publish        # App を Release publish（ポータブル一式 / 既定 x64）
-just dist           # 配布レイアウト dist/TypingSound/ を作成（入口 exe + app/）
-just package v0.1.0 # dist を zip + SHA256SUMS 化（build/package/）
-just clean          # ビルド成果物と dist を削除
-```
+## Release & contributing
 
-> .NET SDK は mise 管理のため素の PATH からは見えません。`just` 経由（内部で `mise exec -- dotnet`）で呼んでください。
-> WinUI 本体は x64 固定でビルドします（詳細は `justfile` 冒頭のコメント参照）。
+- Versions are decided automatically by
+  [release-please](https://github.com/googleapis/release-please) from
+  [Conventional Commits](https://www.conventionalcommits.org/); versions are never
+  hand-edited. See [`docs/RELEASING.md`](docs/RELEASING.md).
+- Distributables are Authenticode-signed (SSL.com eSigner) and ship a CycloneDX SBOM
+  plus Sigstore build-provenance / SBOM attestations. Verify:
+  `gh attestation verify <zip> --repo P4suta/typing-sound`. See
+  [`docs/SUPPLY_CHAIN.md`](docs/SUPPLY_CHAIN.md) and [`docs/SIGNING.md`](docs/SIGNING.md).
+- Contribution guide: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## 開発方針
+## Credits
 
-- **超厳格な品質ゲート** — 警告はエラー扱い（`TreatWarningsAsErrors`）、アナライザ最大（`latest-all`）、StyleCop / Roslynator、`EnforceCodeStyleInBuild`。抑制ではなく根本対処を原則とします（`Directory.Build.props` / `.editorconfig`）。
-- **観測可能性** — Serilog によるログとグローバル例外ハンドラを備え、境界で握りつぶさず記録します。
+- Keystroke / bell sounds (`TypingSound.App/Assets/Sounds/*.wav`):
+  [Mixkit](https://mixkit.co) (Mixkit Free License)
+- App icon: original to this project
 
-## リリース & 貢献
+## License
 
-- バージョンは [release-please](https://github.com/googleapis/release-please) が [Conventional Commits](https://www.conventionalcommits.org/) から自動決定します。**手でバージョンを編集しません**（`feat:` → minor / `fix:`・`perf:` → patch / `!` → major）。変更履歴は [`CHANGELOG.md`](CHANGELOG.md)（自動生成）。
-- 配布物は SSL.com eSigner による Authenticode 署名 + CycloneDX SBOM + Sigstore の build-provenance / SBOM attestation 付き。検証: `gh attestation verify <zip> --repo P4suta/typing-sound`。
-- 詳細は [`CONTRIBUTING.md`](CONTRIBUTING.md) / [`docs/RELEASING.md`](docs/RELEASING.md) / [`docs/SIGNING.md`](docs/SIGNING.md) / [`docs/SUPPLY_CHAIN.md`](docs/SUPPLY_CHAIN.md)。
-
-## クレジット
-
-- 打鍵音 / ベル音（`TypingSound.App/Assets/Sounds/*.wav`）: [Mixkit](https://mixkit.co)（Mixkit Free License）
-- アプリアイコン: 本プロジェクトのオリジナル
-
-## ライセンス
-
-ソースコードは [MIT License](LICENSE) です。同梱のサウンドアセットは Mixkit のライセンス条項に従います（詳細は `LICENSE` 参照）。
+Source code is under the [MIT License](LICENSE). The bundled sound assets follow the
+Mixkit license terms (see `LICENSE`).

@@ -2,7 +2,7 @@ using TypingSound.Core.Abstractions;
 
 namespace TypingSound.Core.Tests.Fakes;
 
-/// <summary>テスト用の再生ハンドル。Halt されたかを記録する。</summary>
+/// <summary>Test playback handle that records whether it was halted.</summary>
 internal sealed class FakePlayingSound : IPlayingSound
 {
     public FakePlayingSound(ISoundClip clip) => Clip = clip;

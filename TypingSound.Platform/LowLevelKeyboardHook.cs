@@ -7,14 +7,14 @@ using TypingSound.Platform.Interop;
 namespace TypingSound.Platform;
 
 /// <summary>
-/// グローバルな低レベルキーボードフック(WH_KEYBOARD_LL)による <see cref="IKeyEventSource"/> 実装。
-/// 押下を「トリガ信号」として通知するだけで、<b>キーの値は一切保持・記録・送信しない</b>。
+/// <see cref="IKeyEventSource"/> implementation using a global low-level keyboard hook (WH_KEYBOARD_LL).
+/// Notifies key presses as a "trigger signal" only; <b>the key value is never retained, recorded or sent</b>.
 ///
-/// 制約: コールバックはインストールしたスレッド上で動き、処理が約300ms を超えると Windows が
-/// フックを黙って外す。よってコールバックは購読者を即時に呼んで return するだけにする。
-/// さらに購読者の例外がネイティブ境界を越えるとフックが壊れるため、ここで必ず握りつぶす。
-/// UI スレッド(メッセージポンプあり)で <see cref="Start"/> すること。
-/// フックハンドルは <see cref="KeyboardHookHandle"/>(SafeHandle)で確実に解放する。
+/// Constraint: the callback runs on the thread that installed the hook, and if it takes more than ~300ms Windows
+/// silently removes the hook. So the callback only invokes subscribers and returns immediately.
+/// A subscriber exception crossing the native boundary breaks the hook, so it must always be swallowed here.
+/// Call <see cref="Start"/> on the UI thread (which has a message pump).
+/// The hook handle is reliably released via <see cref="KeyboardHookHandle"/> (a SafeHandle).
 /// </summary>
 public sealed partial class LowLevelKeyboardHook : IKeyEventSource
 {
@@ -43,7 +43,7 @@ public sealed partial class LowLevelKeyboardHook : IKeyEventSource
         _hook = NativeMethods.SetWindowsHookExW(NativeMethods.WhKeyboardLl, _proc, NativeMethods.GetModuleHandleW(null), 0);
         if (_hook.IsInvalid)
         {
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "低レベルキーボードフックのインストールに失敗しました。");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Failed to install the low-level keyboard hook.");
         }
 
         LogHookInstalled(_logger);
@@ -75,8 +75,8 @@ public sealed partial class LowLevelKeyboardHook : IKeyEventSource
 
     private nint HookCallback(int nCode, nint wParam, nint lParam)
     {
-        // 例外フィルタ内でログし true を返すことで、フックコールバックから例外を絶対に外へ出さない
-        // (出すと Windows がフックを除去する)。CA1031 をフィルタ付き catch で正規に満たす。
+        // Log in the exception filter and return true so no exception ever escapes the hook callback
+        // (which would make Windows remove the hook). Satisfies CA1031 via a filtered catch.
         static bool LogAndSwallow(ILogger logger, Exception ex)
         {
             LogHandlerThrew(logger, ex);
@@ -88,8 +88,8 @@ public sealed partial class LowLevelKeyboardHook : IKeyEventSource
             int message = (int)wParam;
             if (message is NativeMethods.WmKeyDown or NativeMethods.WmSysKeyDown)
             {
-                // KBDLLHOOKSTRUCT の先頭フィールド vkCode を読み、Enter かどうかだけ分類する。
-                // 分類後に vkCode は破棄し、キーの具体値は保持・記録・送信しない(プライバシー原則)。
+                // Read the first field of KBDLLHOOKSTRUCT (vkCode) and classify only as Enter vs Other.
+                // After classifying, vkCode is discarded; the specific key value is never retained, recorded or sent (privacy).
                 int virtualKey = Marshal.ReadInt32(lParam);
                 KeyPressedEventArgs args = virtualKey == NativeMethods.VkReturn
                     ? KeyPressedEventArgs.Enter
@@ -101,12 +101,11 @@ public sealed partial class LowLevelKeyboardHook : IKeyEventSource
                 }
                 catch (Exception ex) when (LogAndSwallow(_logger, ex))
                 {
-                    // 例外はフィルタ内でログ済み。ここでは何もせず握りつぶす。
                 }
             }
         }
 
-        // 低レベルフックでは CallNextHookEx の hhk 引数は無視されるため Zero で良い。
+        // For low-level hooks the hhk argument of CallNextHookEx is ignored, so Zero is fine.
         return NativeMethods.CallNextHookEx(nint.Zero, nCode, wParam, lParam);
     }
 }

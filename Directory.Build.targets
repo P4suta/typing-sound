@@ -1,16 +1,12 @@
 <Project>
 
   <!--
-    ビルド識別スタンプ。`Channel` プロパティに応じて AssemblyInformationalVersion を整形する。
-    Rust の buildstamp 相当を .NET だけで軽量再現(Nerdbank.GitVersioning は入れない)。
-
-      stable  = X.Y.Z                     (公式リリース。release.yml が -p:Channel=stable)
-      nightly = X.Y.Z-nightly.<date>+g<sha>(nightly.yml が -p:Channel=nightly -p:NightlyDate=<date>)
-      既定(dev)= X.Y.Z-dev+g<sha>          (ローカル/その他)
-
-    <Version> は Directory.Build.props(release-please 管理) が源。<sha> は CI から
-    -p:SourceRevision=<short-sha> で渡す(未指定ならサフィックス無し)。SDK が独自に付ける
-    SourceRevisionId 由来の +sha を抑止して、この整形結果だけを残す。
+    Build stamp: format InformationalVersion per Channel.
+      stable  = X.Y.Z                       (release.yml passes -p:Channel=stable)
+      nightly = X.Y.Z-nightly.<date>+g<sha> (nightly.yml passes -p:Channel=nightly -p:NightlyDate=<date>)
+      dev     = X.Y.Z-dev+g<sha>            (local / default)
+    <Version> comes from Directory.Build.props (release-please). CI passes -p:SourceRevision=<short-sha>
+    (no suffix if unset). Suppress the SDK's own SourceRevisionId +sha so only this formatting remains.
   -->
   <PropertyGroup>
     <Channel Condition="'$(Channel)' == ''">dev</Channel>

@@ -1,28 +1,27 @@
 version: 2
 updates:
-  # NuGet パッケージの更新 PR を週次で作成。
+  # Weekly NuGet update PRs.
   - package-ecosystem: nuget
     directory: "/"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    # PR タイトルを Conventional Commits にする(既定の "Bump X…" は CI の pr-title を落とす)。
-    # 例: build(deps): bump Serilog from 4.3.0 to 4.3.1
+    # Conventional Commits PR titles (the default "Bump X..." fails CI's pr-title gate).
+    # e.g. build(deps): bump Serilog from 4.3.0 to 4.3.1
     commit-message:
       prefix: build
     groups:
-      # 関連パッケージはまとめて 1 PR にして粒度を整える。
       serilog:
         patterns: ["Serilog*"]
       analyzers:
         patterns: ["StyleCop.Analyzers", "Roslynator.*"]
 
-  # GitHub Actions の更新 PR を週次で作成。
+  # Weekly GitHub Actions update PRs.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    # 例: ci(deps): bump actions/checkout from 7.0.0 to 7.0.1
+    # e.g. ci(deps): bump actions/checkout from 7.0.0 to 7.0.1
     commit-message:
       prefix: ci

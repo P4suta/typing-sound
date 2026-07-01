@@ -1,12 +1,12 @@
 namespace TypingSound.Core.Abstractions;
 
 /// <summary>
-/// 低レベルな音声出力デバイスの抽象。実装(Platform 層)はデバイスを 1 つ開きっぱなしにし、
-/// <see cref="Play"/> ごとにミキサーへ入力を足す(重ね再生)。1 打ごとの open/close はしない。
+/// Abstraction over the low-level audio output device. Implementations (Platform layer) keep a
+/// single device open and add a mixer input per <see cref="Play"/> (overlapping playback); they do
+/// not open/close the device per keystroke.
 /// </summary>
 public interface IAudioEngine
 {
-    /// <summary>クリップの再生を開始し、停止操作用のハンドルを返す。</summary>
-    /// <param name="clip">再生するクリップ。</param>
+    /// <summary>Starts playing a clip and returns a handle for stopping it.</summary>
     IPlayingSound Play(ISoundClip clip);
 }
