@@ -10,7 +10,7 @@ dotnet   := "mise exec -- dotnet"
 app      := "TypingSound.App/TypingSound.App.csproj"
 launcher := "TypingSound.Launcher/TypingSound.Launcher.csproj"
 tests    := "TypingSound.Core.Tests/TypingSound.Core.Tests.csproj"
-tfm      := "net10.0-windows10.0.26100.0"
+tsbuild  := "eng/TsBuild/TsBuild.csproj"
 
 # Minimum Core line-coverage (%). Ratchet: raise as coverage improves.
 cov_threshold := "90"
@@ -52,40 +52,28 @@ verify: fmt-check build-all test-cov
 
 # Stop running instances
 kill:
-    -taskkill /F /IM TypingSound.App.exe 2>$null
+    {{dotnet}} run --project {{tsbuild}} -- kill
 
 # Build and launch (unpackaged, so run the exe directly); default x64
 run arch="x64": kill build
-    Start-Process "TypingSound.App/bin/{{arch}}/Debug/{{tfm}}/win-{{arch}}/TypingSound.App.exe"
+    {{dotnet}} run --project {{tsbuild}} -- run {{arch}}
 
 # Release publish the app only (portable bundle); default x64. e.g. just publish arm64
 publish arch="x64":
     {{dotnet}} publish {{app}} -c Release -p:Platform={{arch}} -p:PublishProfile=win-{{arch}}
 
 # Build the distribution layout: dist/TypingSound/{TypingSound.exe (entry), app/ (bundle)}; default x64
-# Each line runs as its own powershell -Command (no variable carryover / execution-policy independent).
+# The layout assembly (copy/README/checksums) lives in the C# tool eng/TsBuild, not shell.
 dist arch="x64": (publish arch)
     {{dotnet}} publish {{launcher}} -c Release -r win-{{arch}} --self-contained true
-    if (Test-Path dist/TypingSound) { Remove-Item -Recurse -Force dist/TypingSound }
-    New-Item -ItemType Directory -Force -Path dist/TypingSound/app -ErrorAction Stop | Out-Null
-    Copy-Item "TypingSound.App/bin/Release/{{tfm}}/win-{{arch}}/publish/*" dist/TypingSound/app -Recurse -Force -ErrorAction Stop
-    Copy-Item "TypingSound.Launcher/bin/Release/net10.0/win-{{arch}}/publish/TypingSound.exe" dist/TypingSound/TypingSound.exe -Force -ErrorAction Stop
-    Set-Content -Path dist/TypingSound/README.txt -Encoding UTF8 -Value 'Double-click TypingSound.exe to start. The full app (runtime included) lives in app\. Move or copy the whole folder to run it anywhere.'
-    Write-Host ("dist created: dist/TypingSound  (root has TypingSound.exe + README.txt + app\ ; {0} files in app)" -f (Get-ChildItem dist/TypingSound/app -Recurse -File).Count)
+    {{dotnet}} run --project {{tsbuild}} -- assemble {{arch}}
 
 # Zip + checksum the distribution into build/package/. e.g. just package v0.1.0
 # Run just dist {{arch}} first to create dist/TypingSound (release.yml/nightly.yml do).
 package tag arch="x64":
-    if (-not (Test-Path dist/TypingSound)) { throw "dist/TypingSound not found. Run just dist {{arch}} first." }
-    New-Item -ItemType Directory -Force -Path build/package -ErrorAction Stop | Out-Null
-    if (Test-Path "build/package/TypingSound-{{tag}}-win-{{arch}}.zip") { Remove-Item -Force "build/package/TypingSound-{{tag}}-win-{{arch}}.zip" }
-    Compress-Archive -Path dist/TypingSound/* -DestinationPath "build/package/TypingSound-{{tag}}-win-{{arch}}.zip" -Force
-    ("{0}  TypingSound-{{tag}}-win-{{arch}}.zip" -f (Get-FileHash "build/package/TypingSound-{{tag}}-win-{{arch}}.zip" -Algorithm SHA256).Hash.ToLower()) | Set-Content -Path build/package/SHA256SUMS.txt -Encoding ascii
-    Write-Host "package created: build/package/TypingSound-{{tag}}-win-{{arch}}.zip"
+    {{dotnet}} run --project {{tsbuild}} -- pack {{tag}} {{arch}}
 
 # Remove build artifacts and dist
 clean:
-    -taskkill /F /IM TypingSound.App.exe 2>$null
+    {{dotnet}} run --project {{tsbuild}} -- clean
     {{dotnet}} clean TypingSound.slnx
-    if (Test-Path dist) { Remove-Item -Recurse -Force dist }
-    if (Test-Path build) { Remove-Item -Recurse -Force build }

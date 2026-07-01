@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    リポジトリのビルド補助ツール(配布物の組み立て・zip・チェックサム・署名ステージング・
+    プロセス起動/停止)。以前は justfile 内の PowerShell ワンライナーだったが、変数の行またぎや
+    cmdlet 解決などで脆く保守しづらかったため、テスト可能な C# の実コードへ移した。
+    出荷物ではなくビルド専用。StyleCop/Roslynator の解析は不要なので無効化する
+    (コンパイラの警告=エラーと Nullable は Directory.Build.props から継承したまま)。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>TsBuild</RootNamespace>
+    <AssemblyName>tsbuild</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <RunAnalyzers>false</RunAnalyzers>
+  </PropertyGroup>
+
+</Project>
