@@ -1,0 +1,113 @@
+# 最新の公開 Release の SBOM を、今日の OSV.dev DB に対して再スキャンする。
+#
+# これは「今の source tree」ではなく「既に出荷したもの」を見る唯一のサプライチェーンチェック:
+# NuGetAudit / Dependabot はいずれも HEAD を見るので、リリース後に開示された CVE は、ユーザーが
+# 既に持っているバイナリについて見逃される。Release の CycloneDX SBOM(凍結・attest 済み)は
+# 「出荷済みの vX.Y.Z は影響を受けるか?」に答えるための manifest そのもの(ADR-0005)。
+#
+# 初回リリースまで休眠: Release(または SBOM 資産)が無ければ notice を出して exit 0 し、リリースが
+# 出れば自動で有効化される。
+name: sbom-monitor
+
+on:
+  schedule:
+    - cron: "7 5 * * 1" # 毎週月曜 05:07 UTC(codeql/scorecard/nuget-audit の cron とずらす)
+  workflow_dispatch:
+
+permissions:
+  contents: read # Release の読み取り + SBOM 資産のダウンロード
+  issues: write # sbom-vuln 追跡 issue の開閉
+
+jobs:
+  rescan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # checkout は osv-scanner.toml(受理済み脆弱性の無視リスト)のためだけ。
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Locate latest release + download its SBOMs
+        id: fetch
+        shell: bash
+        run: |
+          if ! tag=$(gh release view --json tagName --jq .tagName 2>/dev/null); then
+            echo "::notice::No published release yet — nothing to re-scan (dormant)."
+            echo "scan=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p sbom
+          if ! gh release download "$tag" --pattern '*.cdx.json' --dir sbom 2>/dev/null || [ -z "$(ls -A sbom)" ]; then
+            echo "::notice::Release $tag has no *.cdx.json SBOM assets — nothing to re-scan."
+            echo "scan=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Downloaded SBOMs for $tag:"; ls -l sbom
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "scan=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install osv-scanner
+        if: steps.fetch.outputs.scan == 'true'
+        uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
+        with:
+          tool: osv-scanner@2.3.6
+
+      - name: Re-scan release SBOMs against today's OSV DB
+        if: steps.fetch.outputs.scan == 'true'
+        id: scan
+        shell: bash
+        run: |
+          # 落とした各 SBOM をスキャン(-L は .cdx.json 名で CycloneDX を判定)。osv-scanner の
+          # 終了コード: 0 = clean, 1 = 脆弱性/ライセンス検出, 128 = パッケージ無し。set -e を踏まず
+          # 捕捉してから分岐する。
+          args=(); for f in sbom/*.cdx.json; do args+=(-L "$f"); done
+          code=0
+          osv-scanner scan source "${args[@]}" --config osv-scanner.toml \
+            --format markdown --output osv-report.md || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "osv-scanner exit code: $code"
+
+      - name: Open / update / close the tracking issue
+        if: steps.fetch.outputs.scan == 'true'
+        shell: bash
+        env:
+          TAG: ${{ steps.fetch.outputs.tag }}
+          CODE: ${{ steps.scan.outputs.code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create sbom-vuln --color B60205 --force \
+            --description "Vulnerability found in a shipped release's SBOM (sbom-monitor.yml)"
+          existing=$(gh issue list --label sbom-vuln --state open --json number --jq '.[0].number // empty')
+
+          if [ "$CODE" = "1" ]; then
+            {
+              echo "## 🛡️ Vulnerability in a shipped release ($TAG)"
+              echo
+              echo "osv-scanner found known vulnerabilities in the SBOM attached to release **$TAG** — the binary users have already downloaded. Source-tree scanners (NuGetAudit / Dependabot) don't cover shipped artifacts; this is that gap (ADR-0005)."
+              echo
+              echo "- Re-scan run: $RUN_URL"
+              echo "- Fix: bump the affected dependency and cut a patch release, or record an accepted/unfixable advisory in \`osv-scanner.toml\`."
+              echo
+              echo "<details><summary>osv-scanner report</summary>"
+              echo
+              cat osv-report.md
+              echo
+              echo "</details>"
+            } > issue-body.md
+            if [ -n "$existing" ]; then
+              gh issue edit "$existing" --body-file issue-body.md
+              echo "Updated issue #$existing."
+            else
+              gh issue create --title "Vulnerable dependency in shipped release $TAG" \
+                --label sbom-vuln --body-file issue-body.md
+            fi
+          elif [ "$CODE" = "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body "Latest release ($TAG) SBOM is clean as of $RUN_URL. Closing."
+              gh issue close "$existing"
+            fi
+            echo "No vulnerabilities in $TAG."
+          else
+            echo "::warning::osv-scanner exited $CODE (no packages / scan error) — not treated as a finding."
+          fi

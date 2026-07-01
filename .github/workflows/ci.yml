@@ -4,32 +4,134 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # labeled/unlabeled は、label 駆動の release-gate が `release: approved` の付与/除去で
+    # 再評価されるように追加(無いと label 変更でゲート結果が stale になる)。重い windows の
+    # build-test は label イベントではスキップするので、コストは安価な ubuntu 層 + ゲートのみ。
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
+# 追い越された PR 実行はキャンセル。main(マージ後の系譜/成果物)は決してキャンセルしない。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+# 既定は最小権限。追加が要る唯一のジョブ(pr-title)は自分で設定する。
 permissions:
   contents: read
 
-# 同一ブランチの古い実行はキャンセルして無駄な並走を防ぐ。
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  build-and-test:
-    name: Build & Test
-    runs-on: windows-latest
+  # docs のみの PR では重い windows ジョブをスキップ(ci-required はその skipped を success と
+  # みなすので分岐保護は通る)。
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.f.outputs.code }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: f
+        with:
+          filters: |
+            code:
+              - '**/*.cs'
+              - '**/*.csproj'
+              - '**/*.xaml'
+              - 'TypingSound.slnx'
+              - 'Directory.Build.props'
+              - 'Directory.Build.targets'
+              - '.editorconfig'
+              - 'justfile'
+              - 'mise.toml'
+              - '.github/workflows/ci.yml'
 
-      # mise.toml に従って .NET SDK と just を導入する(ローカルと完全に同じバージョン)。
-      - name: Setup mise (dotnet + just)
-        uses: jdx/mise-action@v4
+  # ── ubuntu hygiene 層: 並列・needs 無し・安価な fast-fail シグナル ──
+  hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      # ワークフロー YAML 自体を lint: 構文、${{ }} 式の型、run: ブロックへの shellcheck。
+      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+      - uses: crate-ci/typos@37bb98842b0d8c4ffebdb75301a13db0267cef89 # v1.47.2 (ルートの _typos.toml を読む)
+      - uses: uncenter/setup-taplo@b18c8c8302695fe63d6853bc004006215ac52b91 # v2
+        with:
+          version: "0.10.0"
+      # ルートから fmt --check で TOML の *整形*(taplo.toml)を検証(妥当性だけでなく)。
+      - run: taplo fmt --check
 
-      # ソリューション全体(App / Platform / Core / Launcher / Tests)をビルド。
-      # Directory.Build.props により警告はエラー扱いなので、ここがそのまま品質ゲートになる。
-      - name: Build (solution)
-        run: just build-all
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: read
+    steps:
+      # Conventional Commits の PR タイトルゲート(squash マージの権威)。types は committed.toml と揃える。
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # プラットフォーム非依存の Core 層ユニットテスト。
-      - name: Test (Core)
-        run: just test
+  # 多層防御(docs/RELEASING.md): release-please の Release PR(ラベル "autorelease: pending")は、
+  # 人間が意図的に "release: approved" を付けるまでマージできない — 本番リリースは事故的マージでなく
+  # 明示的な行為。非リリース PR は無条件で通る。
+  release-gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Require an explicit approval label on a Release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          labels=$(gh pr view "$PR" --repo "$REPO" --json labels -q '.labels[].name')
+          if echo "$labels" | grep -qx "autorelease: pending"; then
+            if echo "$labels" | grep -qx "release: approved"; then
+              echo "Release PR carries 'release: approved' — gate open."
+            else
+              echo "::error::This is a release PR. Add the 'release: approved' label to allow merge (deliberate release; see docs/RELEASING.md)."
+              exit 1
+            fi
+          else
+            echo "Not a release PR — gate passes."
+          fi
+
+  # ── windows ビルド層: 整形チェック + 全ビルド + カバレッジ付きテスト(just verify) ──
+  build-test:
+    needs: [hygiene, changes]
+    # docs のみ変更ではスキップ。label イベント(ゲート再評価パス)でもスキップ — コードは変わって
+    # いないので。ci-required はどちらの skip も success とみなす。
+    if: needs.changes.outputs.code == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      # mise.toml の固定バージョンで dotnet / just を導入(ローカルと完全一致)。
+      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          install: true
+      # 整形チェック + 全ビルド(Directory.Build.props で警告=エラー) + カバレッジ付きテスト。
+      - name: Verify (format + build + coverage)
+        run: just verify
+
+  # 単一の必須ステータスチェック。leaf を推移的に強制し、`skipped`(docs のみ / paths ゲート)を
+  # success とみなす("Expected — Waiting" デッドロックを避ける)。PR 限定: PR マージをゲートする
+  # ためのもので、main への push には gate する対象が無い(かつ、キャンセルされた push 実行は
+  # gate-results が cancelled=failure とみなすので main を誤って赤くしてしまう)。
+  ci-required:
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [changes, hygiene, pr-title, release-gate, build-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: gate on needed job results
+        uses: ./.github/actions/gate-results
+        with:
+          results: ${{ join(needs.*.result, ',') }}

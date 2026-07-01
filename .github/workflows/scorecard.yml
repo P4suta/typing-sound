@@ -1,0 +1,41 @@
+# OpenSSF Scorecard: サプライチェーン姿勢の週次スキャン(pinned dependencies、token 権限、
+# 分岐保護、SAST カバレッジ、dangerous-workflow パターン等)。結果は Security > Code scanning に
+# 出る。publish_results は README バッジを支える公開 Scorecard API に流す。public repo 前提。
+name: scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: "41 5 * * 1" # 月曜。他の週次ジョブ(codeql/nuget-audit)とずらす
+  push:
+    branches: [main]
+
+# トップは最小権限。下のジョブが Scorecard に必要な分だけ付与する。
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # SARIF を code scanning にアップロード
+      id-token: write # 公開 Scorecard API(バッジ)に結果を publish
+      contents: read
+      actions: read # token / pinned-deps チェック用にワークフローを読む
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false # Scorecard 推奨(checkout に認証情報を残さない)
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      # Security タブ(および PR/commit 注釈)に出す。
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          sarif_file: results.sarif

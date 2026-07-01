@@ -1,0 +1,28 @@
+name: Gate on needed job results
+description: >-
+  Aggregate a set of needs.*.result values into a single pass/fail so one
+  required status check can gate a conditional job graph. `failure` or
+  `cancelled` fails; `success` and `skipped` pass — so paths-gated / docs-only
+  skips never deadlock the required check. The single keystone that lets
+  ci-required stand in for every CI job in branch protection.
+
+inputs:
+  results:
+    description: "Comma-joined needs.*.result (e.g. from join(needs.*.result, ','))."
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Pass the joined results via env (not ${{ }} interpolation) so the script
+    # body carries no injectable expansion.
+    - name: Gate on required job results
+      shell: bash
+      env:
+        RESULTS: ${{ inputs.results }}
+      run: |
+        echo "needed results: $RESULTS"
+        if echo "$RESULTS" | tr ',' '\n' | grep -qE 'failure|cancelled'; then
+          echo "::error::a required job failed or was cancelled"
+          exit 1
+        fi

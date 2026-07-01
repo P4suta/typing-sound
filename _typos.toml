@@ -1,0 +1,3 @@
+# typos の設定。CI の hygiene と lefthook pre-commit が参照する。
+[files]
+extend-exclude = ["dist/", "build/", "**/bin/", "**/obj/"]

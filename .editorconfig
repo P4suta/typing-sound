@@ -4,7 +4,9 @@ root = true
 
 [*]
 charset = utf-8
-end_of_line = crlf
+# リポジトリは .gitattributes(eol=lf)で LF に正規化される。dotnet format と齟齬が出ないよう
+# ここも lf に合わせる(以前は crlf で、CI の整形チェックが全 .cs を誤検出していた)。
+end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space

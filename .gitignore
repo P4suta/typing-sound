@@ -13,6 +13,12 @@
 ## 配布レイアウト(just dist の出力。CI/タグで再生成するためコミットしない)
 dist/
 
+## パッケージ / SBOM 出力(just package / sbom-scan の出力)
+build/
+
+## Stryker(ミューテーションテスト)出力
+StrykerOutput/
+
 ## Visual Studio / Rider / VS Code
 .vs/
 .vscode/

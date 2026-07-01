@@ -1,0 +1,29 @@
+# lefthook の commit-msg フック用 Conventional Commits 検査(committed)。release-please の
+# バージョン + CHANGELOG 導出への入力を well-formed に保つ。PR タイトルのゲート
+# (amannn/action-semantic-pull-request in ci.yml)が squash マージの権威チェックで、これは
+# より早いローカルシグナル。committed は fixup!/merge を既定でスキップするので rebase --autosquash や
+# たまの merge も通る。
+style = "conventional"
+# このリポジトリは小文字 subject(`feat(x): add y`)。PR タイトルゲート(既定で先頭大文字を許さない)や
+# 既存の git 履歴と一致させる。committed の既定(先頭大文字必須)は off にする。
+subject_capitalized = false
+# Conventional の *形式* だけ強制し、長さは縛らない: subject は squash マージされた PR タイトル由来で
+# 60〜100 字になり得るし、PR タイトルゲートも長さ制限を課さないため、committed の 50/72 既定を無効化。
+subject_length = 0
+line_length = 0
+# CONTRIBUTING.md が挙げる types(と PR タイトルゲートが受け付ける types)に合わせる。committed の既定は
+# ci/build/deps/revert を含まないので明示する。
+allowed_types = [
+  "feat",
+  "fix",
+  "perf",
+  "docs",
+  "refactor",
+  "test",
+  "chore",
+  "ci",
+  "build",
+  "deps",
+  "style",
+  "revert",
+]

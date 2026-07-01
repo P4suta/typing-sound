@@ -1,0 +1,112 @@
+# nightly — main の先端から未署名の配布物を作り、14 日保持の GitHub Actions artifact として出す
+# (Release では出さない: Releases 一覧を汚さず Immutable Releases も回避)。Authenticode 署名以外の
+# サプライチェーン来歴(SBOM + osv ゲート + 鍵レス provenance/SBOM attestation)はフルで付ける
+# (ADR-0004: 配布するすべての成果物が来歴を持つ。署名は stable 限定)。
+#
+# バージョンは X.Y.Z-nightly.<date>+g<sha>(Directory.Build.targets が Channel=nightly で整形)。
+# 検証: gh attestation verify <zip> --repo P4suta/typing-sound
+
+name: nightly
+
+on:
+  schedule:
+    - cron: "47 16 * * *" # 01:47 JST
+  workflow_dispatch:
+
+# "最新" は 1 本だけ。走行中の古い nightly はキャンセルしてよい。
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write # 鍵レス Sigstore attestation の OIDC
+      attestations: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0 # freshness ゲートが直近 24h のコミット有無を見るため履歴が要る
+
+      # 鮮度ゲート: 手動 dispatch は常にビルド。定期実行は main が直近 24h で動いた時だけビルドする
+      # (無ければ build=false + ::notice:: で以降のステップを全部スキップ)。
+      - name: Decide whether to build
+        id: freshness
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -n "$(git log --since='24 hours ago' --oneline)" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::main unchanged in the last 24h — skipping nightly."
+          fi
+
+      - name: Setup mise (dotnet + just)
+        if: steps.freshness.outputs.build == 'true'
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          install: true
+
+      # 日付と短縮 SHA を確定。環境変数は MSBuild プロパティとして読まれるので、以降のビルドで
+      # Directory.Build.targets が Channel=nightly / NightlyDate / SourceRevision を拾う。
+      - name: Stamp nightly build identity
+        if: steps.freshness.outputs.build == 'true'
+        shell: bash
+        run: |
+          DATE=$(date -u +%Y%m%d)
+          {
+            echo "NIGHTLY_DATE=$DATE"
+            echo "NightlyDate=$DATE"
+            echo "SourceRevision=$(git rev-parse --short HEAD)"
+          } >> "$GITHUB_ENV"
+
+      - name: Build distributable bundle
+        if: steps.freshness.outputs.build == 'true'
+        env:
+          Channel: nightly
+        run: just dist x64
+
+      - name: Generate SBOM and scan (gate)
+        if: steps.freshness.outputs.build == 'true'
+        uses: ./.github/actions/sbom-scan
+
+      - name: Package (zip + checksums)
+        if: steps.freshness.outputs.build == 'true'
+        run: just package nightly.${{ env.NIGHTLY_DATE }}
+
+      - name: Attest build provenance
+        if: steps.freshness.outputs.build == 'true'
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            build/package/TypingSound-nightly.*-win-x64.zip
+            build/package/SHA256SUMS.txt
+
+      - name: Attest C# SBOM
+        if: steps.freshness.outputs.build == 'true'
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-path: build/package/TypingSound-nightly.*-win-x64.zip
+          sbom-path: build/sbom/app.cdx.json
+
+      # 14 日保持の Actions artifact(Release ではない)。
+      - name: Upload nightly artifact
+        if: steps.freshness.outputs.build == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: TypingSound-nightly-${{ env.NIGHTLY_DATE }}
+          path: |
+            build/package/TypingSound-nightly.*-win-x64.zip
+            build/package/SHA256SUMS.txt
+            build/sbom/app.cdx.json
+          retention-days: 14
+          if-no-files-found: error
