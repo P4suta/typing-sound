@@ -45,7 +45,7 @@ after the artifact expires.
 | NuGet audit | `<NuGetAudit>` on + `dotnet list package --vulnerable` — the SDK fails the build on a known-vulnerable NuGet package |
 | Vulnerabilities (shipped releases) | `osv-scanner` consumes the release SBOM: a **release gate** in `release.yml` (blocks publishing a build with a known-vulnerable dep in the resolved NuGet closure) and a **weekly re-scan** of the latest release's SBOM (`sbom-monitor.yml`) that catches advisories disclosed *after* shipping. Accepted/unfixable advisories: `osv-scanner.toml`. See [ADR-0005](adr/0005-sbom-consumed-by-osv-scanner.md) |
 | Static analysis | CodeQL (`analyze`), plus the in-build analyzers (warnings-as-errors) |
-| Auto-update | Dependabot (nuget + github-actions, weekly) |
+| Auto-update | Mend-hosted Renovate (NuGet + GitHub Actions under the shared P4suta policy) |
 | Action pinning | Third-party actions are pinned to a 40-char commit SHA (with `# vX.Y.Z` alongside); `actionlint` validates workflows |
 | Posture monitoring | OpenSSF Scorecard (weekly, SARIF to the Security tab). See [SCORECARD.md](SCORECARD.md) |
 | Reproducible build | `ContinuousIntegrationBuild=true` in CI (source-path normalization; `Deterministic` is the SDK default) |
@@ -61,5 +61,5 @@ via a single `sbom-vuln` issue. Rationale and details:
   `dotnet tool install --global CycloneDX` and `osv-scanner` is fetched in CI; they
   are **not** in the `mise.toml` dev loop. The project standardizes on **CycloneDX
   1.6**.
-- For lock file updates, Dependabot's nuget PR regenerates `packages.lock.json`.
+- Renovate's NuGet PRs regenerate `packages.lock.json`.
   After adding a package version locally, run `dotnet restore` → commit.
