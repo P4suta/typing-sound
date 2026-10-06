@@ -1,12 +1,12 @@
 [tools]
 dotnet = "10.0.300"
-just = "1.51.0"
+just = "1.58.0"
 
 # Dev/CI tools: lefthook = git hooks, committed = commit-msg Conventional Commits check,
 # actionlint / typos / taplo = hygiene. All pinned to prebuilt-binary backends
 # (committed via ubi to fetch a prebuilt release and avoid a source build).
-lefthook = "2.1.9"
+lefthook = "2.1.16"
 actionlint = "1.7.12"
-typos = "1.48.0"
+typos = "1.50.3"
 taplo = "0.10.0"
 "ubi:crate-ci/committed" = "1.1.11"

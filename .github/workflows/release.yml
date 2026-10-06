@@ -61,12 +61,12 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.REF }}
 
       # Pinned dotnet / just from mise.toml — ship built with exact pins.
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install: true
 
@@ -117,12 +117,12 @@ jobs:
     steps:
       # Verify uses a local composite action, so the repo tree is needed. Pinned to the
       # build commit; before artifact download so checkout's clean doesn't wipe the bundle.
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.REF }}
 
       # dotnet for the eng/TsBuild helper used by the staging steps below.
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install: true
 
@@ -202,11 +202,11 @@ jobs:
       attestations: write
     steps:
       # Repo needed for just package + toolchain.
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.REF }}
 
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install: true
 
@@ -239,14 +239,14 @@ jobs:
       # Keyless build-provenance + SBOM attestation via the workflow OIDC token (no stored
       # secrets). Verify: gh attestation verify <zip> --repo P4suta/typing-sound
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             build/package/TypingSound-*-win-x64.zip
             build/package/SHA256SUMS.txt
 
       - name: Attest C# SBOM
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: build/package/TypingSound-*-win-x64.zip
           sbom-path: build/sbom/app.cdx.json
@@ -255,7 +255,7 @@ jobs:
       # tag yet. softprops uploads files then publishes the draft (immutable requires
       # assets-before-publish); publishing creates the tag. Keep release-please's notes.
       - name: Publish the draft release with the signed assets
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ env.TAG }}
           files: |

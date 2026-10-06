@@ -27,7 +27,7 @@ jobs:
       id-token: write # OIDC for keyless Sigstore attestation
       attestations: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # freshness gate needs history to check for commits in the last 24h
 
@@ -50,7 +50,7 @@ jobs:
 
       - name: Setup mise (dotnet + just)
         if: steps.freshness.outputs.build == 'true'
-        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install: true
 
@@ -83,7 +83,7 @@ jobs:
 
       - name: Attest build provenance
         if: steps.freshness.outputs.build == 'true'
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             build/package/TypingSound-nightly.*-win-x64.zip
@@ -91,7 +91,7 @@ jobs:
 
       - name: Attest C# SBOM
         if: steps.freshness.outputs.build == 'true'
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: build/package/TypingSound-nightly.*-win-x64.zip
           sbom-path: build/sbom/app.cdx.json
