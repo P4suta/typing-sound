@@ -1,8 +1,8 @@
 # Contributing to TypingSound
 
-Thanks for your interest. Read the [Code of Conduct](.github/CODE_OF_CONDUCT.md)
-first. For architecture and setup see the [README](README.md); for the release
-mechanism see [docs/RELEASING.md](docs/RELEASING.md).
+Read the [Code of Conduct](.github/CODE_OF_CONDUCT.md) before contributing.
+See the [README](README.md) for setup and the [architecture guide](docs/architecture.md) for the component overview.
+Release operations live in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Commits & PRs
 
