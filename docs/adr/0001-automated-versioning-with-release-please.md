@@ -2,6 +2,8 @@
 
 Date: 2026-07-01 / Status: Accepted
 
+The automatic nightly distribution decision is superseded by [pull-request and release verification](pull-request-and-release-verification.md).
+
 ## Context
 
 Cutting a release by hand-editing a version number is error-prone and human-driven.

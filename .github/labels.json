@@ -12,17 +12,12 @@
   {
     "name": "release: approved",
     "color": "0e8a16",
-    "description": "Human approval gate for a Release PR; opens the release-gate check. Remove to un-approve."
+    "description": "Approval gate for release proposals; remove the label to revoke approval."
   },
   {
     "name": "sbom-vuln",
     "color": "b60205",
     "description": "sbom-monitor.yml: osv-scanner found a vulnerability in a shipped SBOM."
-  },
-  {
-    "name": "mise-outdated",
-    "color": "fbca04",
-    "description": "mise-outdated.yml: a mise-pinned tool drifted from its latest release."
   },
   {
     "name": "bug",

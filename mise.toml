@@ -1,5 +1,4 @@
 [tools]
-dotnet = "10.0.300"
 just = "1.59.0"
 
 # Dev/CI tools: lefthook = git hooks, committed = commit-msg Conventional Commits check,
@@ -10,3 +9,6 @@ actionlint = "1.7.12"
 typos = "1.51.1"
 taplo = "0.10.0"
 "ubi:crate-ci/committed" = "1.1.11"
+
+[settings]
+idiomatic_version_file_enable_tools = ["dotnet"]

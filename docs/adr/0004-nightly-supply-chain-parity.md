@@ -2,6 +2,8 @@
 
 Date: 2026-07-01 / Status: Accepted (CI-only)
 
+Superseded by [pull-request and release verification](pull-request-and-release-verification.md).
+
 ## Context
 
 [ADR-0001](0001-automated-versioning-with-release-please.md) made nightly an
