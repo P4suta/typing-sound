@@ -2,8 +2,7 @@ name: Generate SBOM and scan for vulnerabilities
 description: >-
   Generate the C# CycloneDX 1.6 SBOM into build/sbom/ and gate on
   known-vulnerable dependencies in the resolved shipped closure (osv-scanner over
-  the SBOM — the view of the .NET/NuGet graph). The single source shared by
-  release.yml (release gate) and nightly.yml so the tool versions never drift.
+  the SBOM — the view of the .NET/NuGet graph) before release publication.
   Requires the toolchain (mise: dotnet) already installed and `just dist` already
   run (NuGet restored). No secrets needed.
 

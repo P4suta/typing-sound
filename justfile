@@ -69,7 +69,7 @@ dist arch="x64": (publish arch)
     {{dotnet}} run --project {{tsbuild}} -- assemble {{arch}}
 
 # Zip + checksum the distribution into build/package/. e.g. just package v0.1.0
-# Run just dist {{arch}} first to create dist/TypingSound (release.yml/nightly.yml do).
+# Run just dist {{arch}} first to create dist/TypingSound.
 package tag arch="x64":
     {{dotnet}} run --project {{tsbuild}} -- pack {{tag}} {{arch}}
 

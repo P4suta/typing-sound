@@ -1,18 +1,14 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    # labeled/unlabeled re-evaluate the label-driven release-gate when `release: approved`
-    # is added/removed (else the gate result goes stale). Heavy windows build-test skips on
-    # label events, so cost is the cheap ubuntu tier + gate only.
     types: [opened, synchronize, reopened, labeled, unlabeled]
+  merge_group:
+  workflow_dispatch:
 
-# Cancel superseded PR runs. Never cancel main.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   DOTNET_NOLOGO: "1"
@@ -22,67 +18,55 @@ permissions:
   contents: read
 
 jobs:
-  # Skip the heavy windows job on docs-only PRs (ci-required treats the skip as success).
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      security-events: write
     outputs:
-      code: ${{ steps.f.outputs.code }}
+      code: ${{ steps.changes.outputs.code }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: f
+        id: changes
+        if: github.event_name == 'pull_request'
         with:
           filters: |
             code:
               - '**/*.cs'
               - '**/*.csproj'
               - '**/*.xaml'
+              - '**/*.props'
+              - '**/*.targets'
+              - '**/packages.lock.json'
               - 'TypingSound.slnx'
-              - 'Directory.Build.props'
-              - 'Directory.Build.targets'
+              - 'global.json'
+              - 'NuGet.Config'
+              - 'nuget.config'
               - '.editorconfig'
+              - '.config/dotnet-tools.json'
               - 'justfile'
               - 'mise.toml'
+              - 'mise.lock'
               - '.github/workflows/ci.yml'
-
-  # ubuntu hygiene tier: parallel, no needs, cheap fast-fail signal.
-  hygiene:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Lint workflow YAML: syntax, ${{ }} expression types, shellcheck on run: blocks.
+            workflows:
+              - '.github/**'
       - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
-      - uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1 (reads _typos.toml)
+      - uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
       - uses: uncenter/setup-taplo@b18c8c8302695fe63d6853bc004006215ac52b91 # v2
         with:
           version: "0.10.0"
-      # Check TOML *formatting* (taplo.toml), not just validity.
       - run: taplo fmt --check
-
-  pr-title:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      pull-requests: read
-    steps:
-      # Conventional Commits PR-title gate (authoritative for squash merge). types match committed.toml.
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Defense in depth (docs/RELEASING.md): a release-please Release PR ("autorelease: pending")
-  # can't merge until a human deliberately adds "release: approved". Non-release PRs pass.
-  release-gate:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pull-requests: read
-    steps:
-      - name: Require an explicit approval label on a Release PR
+      - name: Require approval for release proposals
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.number }}
@@ -90,63 +74,57 @@ jobs:
         run: |
           labels=$(gh pr view "$PR" --repo "$REPO" --json labels -q '.labels[].name')
           if echo "$labels" | grep -qx "autorelease: pending"; then
-            if echo "$labels" | grep -qx "release: approved"; then
-              echo "Release PR carries 'release: approved' — gate open."
-            else
-              echo "::error::This is a release PR. Add the 'release: approved' label to allow merge (deliberate release; see docs/RELEASING.md)."
+            if ! echo "$labels" | grep -qx "release: approved"; then
+              echo "::error::Release proposals require the 'release: approved' label."
               exit 1
             fi
-          else
-            echo "Not a release PR — gate passes."
           fi
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        if: github.event_name != 'pull_request' || steps.changes.outputs.workflows == 'true'
+        with:
+          languages: actions
+          build-mode: none
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        if: github.event_name != 'pull_request' || steps.changes.outputs.workflows == 'true'
+        with:
+          category: /language:actions
 
-  # windows build tier: format check + full build + tests with coverage (just verify).
   build-test:
-    needs: [hygiene, changes]
-    # Skip on docs-only changes and on label events (gate-reeval path; code unchanged).
-    # ci-required treats either skip as success.
-    if: needs.changes.outputs.code == 'true' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
-    runs-on: windows-latest
+    needs: checks
+    if: github.event_name != 'pull_request' || needs.checks.outputs.code == 'true'
+    runs-on: windows-2025
     timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Pinned dotnet / just from mise.toml (exact match with local).
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           install: true
-      # Format check + full build (warnings=errors via Directory.Build.props) + tests with coverage.
-      - name: Verify (format + build + coverage)
-        run: just verify
-
-  # Single required status check. Transitively enforces the leaves and treats `skipped`
-  # (docs-only / paths gate) as success (avoids "Expected — Waiting" deadlock). PR-only:
-  # it gates PR merges, and main has nothing to gate — plus a cancelled push run would be
-  # scored cancelled=failure by gate-results and wrongly redden main.
-  ci-required:
-    if: ${{ always() && github.event_name == 'pull_request' }}
-    needs: [changes, hygiene, pr-title, release-gate, build-test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: gate on needed job results
-        uses: ./.github/actions/gate-results
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
-          results: ${{ join(needs.*.result, ',') }}
+          languages: csharp
+          build-mode: manual
+      - name: Verify formatting, build, audit, and coverage
+        run: just verify
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: /language:csharp
 
-  # The one status check branch protection requires,
-  # named the same in every P4suta repository.
-  # It passes only when every job it needs succeeded or was skipped.
   required:
-    name: required
     if: always()
-    needs: [ci-required]
-    runs-on: ubuntu-latest
+    needs: [checks, build-test]
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
     steps:
-      - name: Fail unless every needed job succeeded or was skipped
+      - name: Require successful checks and the selected build
         env:
-          RESULTS: ${{ toJSON(needs.*.result) }}
+          RESULTS: ${{ toJSON(needs) }}
         run: |
-          echo "${RESULTS}"
-          jq -e 'all(.[]; IN("success", "skipped"))' <<< "${RESULTS}"
+          jq -e '.checks.result == "success" and
+            (.["build-test"].result == "success" or
+              (.["build-test"].result == "skipped" and .checks.outputs.code == "false"))' <<< "$RESULTS"

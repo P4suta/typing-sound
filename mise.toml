@@ -1,5 +1,5 @@
 [tools]
-dotnet = "10.0.300"
+dotnet = "10.0.402"
 just = "1.59.0"
 
 # Dev/CI tools: lefthook = git hooks, committed = commit-msg Conventional Commits check,

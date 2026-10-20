@@ -81,8 +81,7 @@ jobs:
           Channel: stable
         run: just dist x64
 
-      # SBOM (CycloneDX 1.6) + osv-scanner release gate in a composite shared with
-      # nightly.yml (no tool drift). Run after build to match the shipped graph.
+      # Scan the resolved distribution graph before signing and publication.
       - name: Generate SBOM and scan (release gate)
         uses: ./.github/actions/sbom-scan
 

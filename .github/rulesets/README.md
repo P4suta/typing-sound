@@ -6,7 +6,7 @@ auto-apply them from the tree; apply them once with `gh` (needs admin).
 
 | File | Target | Enforces |
 |---|---|---|
-| `protect-default-branch.json` | `main` | PR required, `ci-required` + `analyze` (CodeQL) status checks (strict), linear history, conversation resolution, no force-push/deletion, no admin bypass, 0 required approvals (solo self-merge) |
+| `protect-default-branch.json` | `main` | PR required, strict `required` status from GitHub Actions, linear history, conversation resolution, no force-push/deletion, no admin bypass, 0 required approvals (solo self-merge) |
 | `require-signed-commits.json` | all branches but `gh-pages` | signed commits (release-please commits via the GitHub App / Contents API, which are GitHub-signed) |
 
 ## Apply
@@ -34,4 +34,4 @@ gh api repos/P4suta/typing-sound/rules/branches/main --jq '[.[].type] | unique'
 
 After any UI/`gh` change, re-export the ruleset back into this directory so the tree
 stays canonical. If a CI job name changes, keep `required_status_checks` contexts
-(`ci-required`, `analyze`) in sync.
+(`required`) in sync.
