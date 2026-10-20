@@ -12,8 +12,7 @@ pipeline, [ADR-0003](adr/0003-ci-signing-pipeline.md).
    open that bumps `<Version>` in `Directory.Build.props` (the line annotated
    `<!-- x-release-please-version -->`) and updates [`CHANGELOG.md`](../CHANGELOG.md).
    `feat:` → minor, `fix:`/`perf:` → patch, `!` / `BREAKING CHANGE:` → major.
-3. **Add the `release: approved` label** to the Release PR (the `release-gate` CI job
-   fails the PR until it's present).
+3. Add `release: approved` to the release PR; the CI `checks` job rejects it without this label.
 4. **Merge the Release PR.** release-please creates the GitHub Release as a draft,
    materializes the `vX.Y.Z` tag at the release commit, then dispatches
    [`release.yml`](../.github/workflows/release.yml).
@@ -23,7 +22,7 @@ pipeline, [ADR-0003](adr/0003-ci-signing-pipeline.md).
 
 A real, immutable release requires several deliberate steps (label, merge, two
 environment approvals), and `release.yml` starts only via that dispatch, never a tag
-push. Automated tooling (incl. the AI assistant) will not merge the Release PR, push
+push. Release preparation will not merge the Release PR, push
 a `v*` tag, approve the `release` environment, or run `release.yml` with
 `publish=true` without an explicit, version-named instruction.
 

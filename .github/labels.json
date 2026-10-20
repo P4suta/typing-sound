@@ -12,7 +12,7 @@
   {
     "name": "release: approved",
     "color": "0e8a16",
-    "description": "Human approval gate for a Release PR; opens the release-gate check. Remove to un-approve."
+    "description": "Approval gate for release proposals; remove the label to revoke approval."
   },
   {
     "name": "sbom-vuln",
