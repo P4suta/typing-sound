@@ -16,6 +16,9 @@ Release operations live in [docs/RELEASING.md](docs/RELEASING.md).
   gates are strict (warnings-as-errors, analyzers, StyleCop / Roslynator); fix causes
   rather than suppress.
 
+`just test` checks Core behavior and the audio adapter without requiring an audio device.
+Run `just test-audio-device` on Windows with an active playback device to check silent engine startup, bundled audio decoding, and disposal.
+
 ## Scope
 
 TypingSound is a small, portable, tray-resident app that plays a sound per keystroke.

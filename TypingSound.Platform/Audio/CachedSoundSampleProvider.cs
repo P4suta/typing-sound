@@ -12,13 +12,13 @@ internal sealed class CachedSoundSampleProvider : ISampleProvider
 
     public WaveFormat WaveFormat => _sound.WaveFormat;
 
-    public int Read(float[] buffer, int offset, int count)
+    public int Read(Span<float> buffer)
     {
         int available = _sound.AudioData.Length - _position;
-        int toCopy = Math.Min(available, count);
+        int toCopy = Math.Min(available, buffer.Length);
         if (toCopy > 0)
         {
-            Array.Copy(_sound.AudioData, _position, buffer, offset, toCopy);
+            _sound.AudioData.AsSpan(_position, toCopy).CopyTo(buffer);
             _position += toCopy;
         }
 

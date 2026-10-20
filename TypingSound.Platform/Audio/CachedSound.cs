@@ -13,7 +13,7 @@ namespace TypingSound.Platform.Audio;
 /// </summary>
 internal sealed class CachedSound : ISoundClip
 {
-    private CachedSound(string id, float[] audioData, WaveFormat waveFormat)
+    internal CachedSound(string id, float[] audioData, WaveFormat waveFormat)
     {
         Id = id;
         AudioData = audioData;
@@ -42,7 +42,7 @@ internal sealed class CachedSound : ISoundClip
         List<float> data = [];
         float[] buffer = new float[targetFormat.SampleRate * targetFormat.Channels];
         int read;
-        while ((read = sampleProvider.Read(buffer, 0, buffer.Length)) > 0)
+        while ((read = sampleProvider.Read(buffer)) > 0)
         {
             data.AddRange(buffer.AsSpan(0, read));
         }

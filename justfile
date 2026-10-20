@@ -10,6 +10,7 @@ dotnet   := "mise exec -- dotnet"
 app      := "TypingSound.App/TypingSound.App.csproj"
 launcher := "TypingSound.Launcher/TypingSound.Launcher.csproj"
 tests    := "TypingSound.Core.Tests/TypingSound.Core.Tests.csproj"
+platform_tests := "TypingSound.Platform.Tests/TypingSound.Platform.Tests.csproj"
 tsbuild  := "eng/TsBuild/TsBuild.csproj"
 
 # Minimum Core line-coverage (%). Ratchet: raise as coverage improves.
@@ -27,9 +28,17 @@ build:
 build-all:
     {{dotnet}} build TypingSound.slnx
 
-# Core unit tests
-test:
+# Core and platform unit tests
+test: test-platform
     {{dotnet}} test {{tests}}
+
+# Audio adapter tests without a physical device
+test-platform:
+    {{dotnet}} test {{platform_tests}} --filter "Category!=AudioDevice"
+
+# Check silent playback startup and disposal on an active Windows audio device
+test-audio-device:
+    {{dotnet}} test {{platform_tests}} --filter "Category=AudioDevice"
 
 # Tests with coverage; fails the build below cov_threshold (CI gate).
 test-cov:
@@ -48,7 +57,7 @@ fmt:
     {{dotnet}} format TypingSound.slnx whitespace
 
 # Pre-push verification: format + full build + coverage tests.
-verify: fmt-check build-all test-cov
+verify: fmt-check build-all test-cov test-platform
 
 # Stop running instances
 kill:

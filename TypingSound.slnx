@@ -4,5 +4,6 @@
   <Project Path="TypingSound.Core/TypingSound.Core.csproj" />
   <Project Path="TypingSound.Launcher/TypingSound.Launcher.csproj" />
   <Project Path="TypingSound.Platform/TypingSound.Platform.csproj" />
+  <Project Path="TypingSound.Platform.Tests/TypingSound.Platform.Tests.csproj" />
   <Project Path="eng/TsBuild/TsBuild.csproj" />
 </Solution>
