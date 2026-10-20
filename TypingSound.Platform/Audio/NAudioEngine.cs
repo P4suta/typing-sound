@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using NAudio.CoreAudioApi;
-using NAudio.CoreAudioApi.Interfaces;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using TypingSound.Core.Abstractions;
@@ -8,25 +7,22 @@ using TypingSound.Core.Abstractions;
 namespace TypingSound.Platform.Audio;
 
 /// <summary>
-/// <see cref="IAudioEngine"/> implementation over NAudio (WASAPI shared mode).
-/// Keeps a single device open and adds an input to the mixer per key press (low latency, overlapping playback).
-/// Shared mode does not resample, so the mixer's internal format is fixed to <see cref="OutputFormat"/> (the mix
-/// format of the default device at startup) and clips are converted to that format on load (<see cref="AssetSoundBank"/>).
-/// When the default render device changes (e.g. headphones plugged in) the mixer is kept and only the
-/// <see cref="WasapiOut"/> is recreated on the new device. If the new device's mix format differs from the fixed
-/// format, WasapiOut resamples internally.
+/// Plays overlapping cached audio through a shared WASAPI device.
+/// Keeps the mixer format stable and recreates output when the default render device changes.
 /// </summary>
 public sealed partial class NAudioEngine : IAudioEngine, IDisposable
 {
+    private const int OutputLatencyMilliseconds = 60;
+
     private readonly ILogger _logger;
     private readonly MMDeviceEnumerator _enumerator;
-    private readonly DeviceChangeNotificationClient _notificationClient;
+    private readonly MMDeviceNotificationClient _notificationClient;
     private readonly MixingSampleProvider _mixer;
 
     // This lock serializes _output / _currentDevice / _currentDeviceId / _disposed, preventing races between the
     // device-change handler (background thread) and Dispose. Play only touches _mixer (thread-safe) and needs no lock.
     private readonly object _outputLock = new();
-    private WasapiOut? _output;
+    private WasapiPlayer? _output;
     private MMDevice? _currentDevice;
     private string? _currentDeviceId;
     private bool _disposed;
@@ -41,7 +37,8 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
         WaveFormat mixFormat;
         using (MMDevice device = _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
         {
-            mixFormat = device.AudioClient.MixFormat;
+            using AudioClient audioClient = device.CreateAudioClient();
+            mixFormat = audioClient.MixFormat;
         }
 
         OutputFormat = WaveFormat.CreateIeeeFloatWaveFormat(mixFormat.SampleRate, mixFormat.Channels);
@@ -53,8 +50,14 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
             StartOutputOnDefaultDevice();
         }
 
-        _notificationClient = new DeviceChangeNotificationClient(this);
-        _enumerator.RegisterEndpointNotificationCallback(_notificationClient);
+        _notificationClient = _enumerator.CreateNotificationClient(useSynchronizationContext: false);
+        _notificationClient.DefaultDeviceChanged += (_, args) =>
+        {
+            if (args.Flow == DataFlow.Render && args.Role == Role.Multimedia)
+            {
+                OnDefaultRenderDeviceChanged(args.DeviceId);
+            }
+        };
 
         LogAudioOutput(_logger, OutputFormat.SampleRate, OutputFormat.Channels, OutputFormat.Encoding);
     }
@@ -114,11 +117,16 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
     [LoggerMessage(Level = LogLevel.Warning, Message = "failed to unregister audio device notifications")]
     private static partial void LogUnregisterFailed(ILogger logger, Exception ex);
 
-    // Call under the lock. Creates a new WasapiOut on the default render device (Multimedia) and starts playback.
+    // Recreate the multimedia output while holding _outputLock.
     private void StartOutputOnDefaultDevice()
     {
         MMDevice device = _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-        WasapiOut output = new(device, AudioClientShareMode.Shared, useEventSync: true, latency: 60);
+        WasapiPlayer output = new WasapiPlayerBuilder()
+            .WithDevice(device)
+            .WithSharedMode()
+            .WithEventSync()
+            .WithLatency(OutputLatencyMilliseconds)
+            .Build();
         output.Init(_mixer);
         output.Play();
 
@@ -163,7 +171,7 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
 
         try
         {
-            _enumerator.UnregisterEndpointNotificationCallback(_notificationClient);
+            _notificationClient.Dispose();
         }
         catch (Exception ex) when (LogAndSwallow(_logger, ex))
         {
@@ -209,35 +217,4 @@ public sealed partial class NAudioEngine : IAudioEngine, IDisposable
     // Called from the notification callback. Offloads the actual recreate to a background thread so the callback returns immediately.
     private void OnDefaultRenderDeviceChanged(string? defaultDeviceId) =>
         _ = Task.Run(() => RefreshOutputDevice(defaultDeviceId));
-
-    /// <summary>
-    /// Watches for default render device changes and asks the engine to recreate when the Render/Multimedia default changes.
-    /// Does not call device APIs inside the COM callback; the engine offloads to a background thread (deadlock avoidance).
-    /// </summary>
-    private sealed class DeviceChangeNotificationClient(NAudioEngine engine) : IMMNotificationClient
-    {
-        public void OnDefaultDeviceChanged(DataFlow flow, Role role, string defaultDeviceId)
-        {
-            if (flow == DataFlow.Render && role == Role.Multimedia)
-            {
-                engine.OnDefaultRenderDeviceChanged(defaultDeviceId);
-            }
-        }
-
-        public void OnDeviceStateChanged(string deviceId, DeviceState newState)
-        {
-        }
-
-        public void OnDeviceAdded(string pwstrDeviceId)
-        {
-        }
-
-        public void OnDeviceRemoved(string deviceId)
-        {
-        }
-
-        public void OnPropertyValueChanged(string pwstrDeviceId, PropertyKey key)
-        {
-        }
-    }
 }

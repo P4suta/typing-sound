@@ -14,5 +14,6 @@ Tests use fakes for these boundaries.
 `TypingSound.App` provides the WinUI 3 tray interface, dependency wiring, and diagnostics.
 `TypingSound.Launcher` provides the portable entry executable.
 `TypingSound.Core.Tests` checks the Core behavior with xUnit and property tests.
+`TypingSound.Platform.Tests` checks cached audio reads against an independent queue without using an audio device.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the development checks.
