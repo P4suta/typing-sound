@@ -64,6 +64,8 @@ jobs:
         with:
           client-id: ${{ steps.doppler_automation_0.outputs.GITHUB_APP_CLIENT_ID }}
           private-key: ${{ steps.doppler_automation_0.outputs.GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
 
       - name: release-please (active)
         id: rp
