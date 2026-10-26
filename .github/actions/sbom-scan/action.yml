@@ -29,7 +29,7 @@ runs:
     # Gate on known-vulnerable deps in the resolved shipped closure. Accepted /
     # unfixable advisories go in osv-scanner.toml.
     - name: Install osv-scanner
-      uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
       with:
         tool: osv-scanner@2.3.6
     - name: Scan SBOM for known vulnerabilities (gate)
