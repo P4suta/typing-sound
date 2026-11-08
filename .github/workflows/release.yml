@@ -66,7 +66,7 @@ jobs:
           ref: ${{ env.REF }}
 
       # Pinned dotnet / just from mise.toml — ship built with exact pins.
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
           install: true
 
@@ -120,7 +120,7 @@ jobs:
           ref: ${{ env.REF }}
 
       # dotnet for the eng/TsBuild helper used by the staging steps below.
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
           install: true
 
@@ -229,7 +229,7 @@ jobs:
         with:
           ref: ${{ env.REF }}
 
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
           install: true
 
@@ -278,7 +278,7 @@ jobs:
       # tag yet. softprops uploads files then publishes the draft (immutable requires
       # assets-before-publish); publishing creates the tag. Keep release-please's notes.
       - name: Publish the draft release with the signed assets
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ env.TAG }}
           files: |
