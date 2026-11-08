@@ -1,11 +1,12 @@
 # ADR index
 
-Architecture Decision Records for TypingSound. Each records a decision, its
-rationale, the rejected alternatives, and re-examination triggers.
+Architecture decision records describe TypingSound's choices, alternatives, and reconsideration conditions.
+Historical record paths remain stable.
 
-- [0001](0001-automated-versioning-with-release-please.md) — Automated versioning via release-please (Conventional Commits → Release PR → `vX.Y.Z` tag bumps `Directory.Build.props` `<Version>` + CHANGELOG) + dev/nightly/stable build-channel stamping via `Directory.Build.targets`; Nerdbank.GitVersioning rejected
-- [0002](0002-code-signing-provider.md) — Code signing = SSL.com eSigner + personal Individual Validation cert (`CN=Yasunobu Sakashita`); Azure Trusted Signing (individual onboarding paused) and EV (no longer grants immediate SmartScreen trust) rejected
-- [0003](0003-ci-signing-pipeline.md) — CI signing pipeline: official `SSLcom/esigner-codesign` Action (`batch_sign`) inside a `build`→`sign`→`publish` job split, signing secrets behind an approval-gated `release` environment, hardened verify shared between the sign self-check and the publish gate
-- [0004](0004-nightly-supply-chain-parity.md) — Nightly artifacts carry the full supply chain minus signing: CycloneDX SBOM + osv-scanner gate + keyless build-provenance & SBOM attestations; Authenticode signing stays stable-only
-- [0005](0005-sbom-consumed-by-osv-scanner.md) — The CycloneDX SBOM is consumed by osv-scanner: a release gate (blocks publishing a known-vulnerable resolved NuGet closure) + a weekly re-scan of the latest release's SBOM; `osv-scanner.toml` accepted-advisory escape hatch
-- [Pull-request and release verification](pull-request-and-release-verification.md) — One Windows verification build, one required status, deliberate stable distributions, and weekly checks of published SBOMs.
+[Automated versioning](0001-automated-versioning-with-release-please.md) assigns versioning to release-please and defines build channels.
+[Code signing provider](0002-code-signing-provider.md) selects SSL.com eSigner.
+[CI signing pipeline](0003-ci-signing-pipeline.md) separates building, signing, and publication behind approval gates.
+[Nightly supply chain parity](0004-nightly-supply-chain-parity.md) records unsigned artifacts and their supply chain checks.
+[SBOM consumption](0005-sbom-consumed-by-osv-scanner.md) defines release and published dependency checks.
+[Pull-request and release verification](pull-request-and-release-verification.md) replaces automatic nightly distributions with deliberate stable releases and shared verification.
+[Release App credential synchronization](sync-release-app-credentials-to-the-protected-environment.md) proposes native synchronization into the protected environment while preserving signing OIDC.

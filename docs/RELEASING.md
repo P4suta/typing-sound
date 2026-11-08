@@ -1,84 +1,50 @@
 # Releasing
 
-Operational runbook for cutting a release and for the one-time GitHub setup the
-automation needs. Design rationale (why release-please, channels, the gates):
-[ADR-0001](adr/0001-automated-versioning-with-release-please.md) and, for the signing
-pipeline, [ADR-0003](adr/0003-ci-signing-pipeline.md).
+Release-please and build channels follow the [versioning decision](adr/0001-automated-versioning-with-release-please.md).
+The [signing pipeline decision](adr/0003-ci-signing-pipeline.md) governs protected signing and publication.
+The [verification decision](adr/pull-request-and-release-verification.md) governs pull-request checks and deliberate distributions.
 
-## How a release happens (once activated)
+## Release sequence
 
-1. Conventional Commits land on `main` (squash-merged PRs; the PR title is the commit).
-2. [`release-please`](../.github/workflows/release-please.yml) keeps a **Release PR**
-   open that bumps `<Version>` in `Directory.Build.props` (the line annotated
-   `<!-- x-release-please-version -->`) and updates [`CHANGELOG.md`](../CHANGELOG.md).
-   `feat:` → minor, `fix:`/`perf:` → patch, `!` / `BREAKING CHANGE:` → major.
-3. Add `release: approved` to the release PR; the CI `checks` job rejects it without this label.
-4. **Merge the Release PR.** release-please creates the GitHub Release as a draft,
-   materializes the `vX.Y.Z` tag at the release commit, then dispatches
-   [`release.yml`](../.github/workflows/release.yml).
-5. `release.yml` runs three jobs: **build → sign → publish**. The `sign` and
-   `publish` jobs pause on the `release` environment for approval; publish attaches
-   the signed zip + `SHA256SUMS.txt` + SBOMs + attestations, then publishes.
+Squash merges place Conventional Commits on main.
+The [release proposal workflow](../.github/workflows/release-please.yml) updates the [version declaration](../Directory.Build.props) and [changelog](../CHANGELOG.md).
+The version field uses the x-release-please-version annotation.
+A feat commit requests a minor update, a fix or perf commit requests a patch, and a breaking change requests a major update.
 
-A real, immutable release requires several deliberate steps (label, merge, two
-environment approvals), and `release.yml` starts only via that dispatch, never a tag
-push. Release preparation will not merge the Release PR, push
-a `v*` tag, approve the `release` environment, or run `release.yml` with
-`publish=true` without an explicit, version-named instruction.
+Add the release: approved label before merging a release proposal.
+The checks job rejects a release proposal without the label.
+Merging the release proposal creates a draft GitHub Release and materializes the version tag at the release commit.
+The proposal workflow dispatches the [release workflow](../.github/workflows/release.yml), which builds, signs, and publishes the distribution.
+Tag pushes alone don't start the release workflow.
 
-## Activation (one-time GitHub setup)
+The sign and publish jobs each require approval in the release environment.
+Publication attaches the signed archive, SHA256SUMS.txt, dependency inventories, and attestations before publishing the release.
+Release preparation requires an explicit instruction naming the version before merging a release proposal, pushing a version tag, approving the release environment, or dispatching a signing or publication run.
 
-release-please ships **dormant**: until the App and signing secrets are set, every
-workflow runs **green but no-ops** (nothing is tagged, signed, or published). Wiring
-them lights the pipeline up — no code change, only GitHub configuration.
+## App credential setup
 
-### (a) GitHub App for release-please
+The proposal workflow remains dormant until App credentials are available.
+Create and install a GitHub App for [TypingSound](https://github.com/P4suta/typing-sound) with repository contents and pull request write permissions.
+The App needs no webhook.
+Generate a private key and record the App client ID in Doppler's canonical automation config.
 
-A tag pushed by the default `GITHUB_TOKEN` does **not** trigger `release.yml`
-(GitHub's workflow-recursion guard), so `release-please.yml` mints a short-lived
-installation token at runtime via `actions/create-github-app-token`.
+The release-please environment admits only main and prevents administrator bypass.
+It has no required reviewers because the release proposal merge supplies the human decision.
+Configure the [native environment synchronization](credential-delivery.md) to supply only RELEASE_PLEASE_CLIENT_ID and RELEASE_PLEASE_PRIVATE_KEY.
+Keep the private key out of repository secrets.
+The workflow mints a repository-scoped installation token with explicit permissions.
 
-1. **Create a GitHub App** (personal or org). Repository permissions: **Contents:
-   Read & write** and **Pull requests: Read & write**. No webhook needed.
-2. **Install** it on the `P4suta/typing-sound` repo.
-3. Generate a **private key** (`.pem`) and note the App's **Client ID**.
-4. Settings → Environments → **New environment** → name it **`release-please`**.
-   - **Deployment branches and tags** → **Selected branches** → add **`main`** only.
-   - **Do NOT add required reviewers** (release-please must run unattended; the human
-     gate is merging the Release PR).
-5. In that environment's **Environment secrets**, add:
-   - `RELEASE_PLEASE_CLIENT_ID` = the App's Client ID
-   - `RELEASE_PLEASE_PRIVATE_KEY` = the full `.pem` contents (multi-line is fine)
+## Signing and publication setup
 
-A repository secret is readable on *any* branch, so the App key is scoped to an
-environment whose branch policy is `main`-only.
+The release environment admits main and requires the owner's approval for signing and publication.
+Signing retains Doppler OIDC through DOPPLER_SIGN_WINDOWS_IDENTITY_ID.
+The signing config references the canonical SSL.com username, password, credential ID, and TOTP secret.
+The workflow maps the fields to the existing eSigner inputs.
+See the [signing guide](SIGNING.md) and [credential guide](credential-delivery.md) for setup and authority boundaries.
+A dispatch with publish=false exercises protected signing without publishing a release.
 
-### (b) `release` environment for signing + publishing
+## Repository setup
 
-1. Settings → Environments → **New environment** → name it **`release`**.
-2. **Required reviewers**: add **yourself** (every `sign` / `publish` run pauses for a
-   deliberate approval). **Deployment branches and tags → Selected**: allow `main`.
-3. **Environment secrets** (all four required by SSL.com eSigner `batch_sign`):
-
-   | Secret name | Value |
-   |---|---|
-   | `ES_USERNAME` | SSL.com username |
-   | `ES_PASSWORD` | SSL.com password |
-   | `CREDENTIAL_ID` | Credential ID of the signing certificate |
-   | `ES_TOTP_SECRET` | TOTP secret for eSigner automated signing (Base32) |
-
-   See [SIGNING.md](SIGNING.md) for obtaining these. A `publish=false` run is an
-   unsigned signing smoke test.
-
-### (c) Apply branch-protection rulesets
-
-Branch protection is version-controlled as rulesets under `.github/rulesets/`. Apply
-them with `gh` (needs admin) — commands and verification are in
-[`.github/rulesets/README.md`](../.github/rulesets/README.md).
-
-### (d) Enable private reporting + Discussions
-
-- Settings → Code security → **Private vulnerability reporting** → Enable (backs the
-  [SECURITY.md](../.github/SECURITY.md) advisory link).
-- Settings → General → Features → **Discussions** → Enable (backs the issue-template
-  "Question or idea" link).
+Apply the version-controlled [branch protection rulesets](../.github/rulesets/README.md) with the documented administrator commands and verification.
+Enable private vulnerability reporting in the repository's code security settings for the [security policy](../.github/SECURITY.md).
+Enable Discussions in the repository's feature settings for the question links in issue templates.

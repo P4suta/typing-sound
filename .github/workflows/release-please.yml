@@ -1,7 +1,8 @@
-# release-please — version / CHANGELOG / tag bot (ADR-0001). Maintains a Release PR;
-# merging it creates a DRAFT Release and dispatches release.yml. Runs as a GitHub App
-# (RELEASE_PLEASE_CLIENT_ID / RELEASE_PLEASE_PRIVATE_KEY); dormant green no-op until those
-# secrets are set. See docs/RELEASING.md.
+# release-please — version / CHANGELOG / tag bot (ADR-0001).
+# Maintains a Release PR;
+# merging it creates a DRAFT Release and dispatches release.yml.
+# Runs as a GitHub App (RELEASE_PLEASE_CLIENT_ID / RELEASE_PLEASE_PRIVATE_KEY); dormant green no-op until those secrets are set.
+# See docs/RELEASING.md.
 
 name: release-please
 
@@ -10,7 +11,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Never cancel mid-release. One per ref anyway.
+# Never cancel mid-release.
+# One per ref anyway.
 concurrency:
   group: release-please-${{ github.ref }}
   cancel-in-progress: false
@@ -20,40 +22,31 @@ permissions:
 
 jobs:
   release-please:
+    name: Update release proposal
+    if: >-
+      github.repository_id == '1255768684' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # App private key lives in this environment's secrets, with a main-only deployment-branch
-    # policy so other branches (or malicious workflow edits on a feature branch) can't read
-    # the credentials — repository secrets would be readable from any branch's push. No
-    # required reviewers on purpose: release-please must run unattended. ADR-0001.
+    # App private key lives in this environment's secrets, with a main-only deployment-branch policy so other branches (or malicious workflow edits on a feature branch) can't read the credentials — repository secrets would be readable from any branch's push.
+    # No required reviewers on purpose: release-please must run unattended.
+    # ADR-0001.
     environment: release-please
     permissions:
-      id-token: write
-      contents: write # release commit + draft Release
-      pull-requests: write # Release PR
-      actions: write # dispatch release.yml
+      contents: read # Read repository metadata with the workflow token.
+      actions: write # Dispatch the protected release workflow.
     env:
       # Server-side boolean — never exposes the secret value.
-      HAS_APP: ${{ vars.DOPPLER_AUTOMATION_IDENTITY_ID != '' }}
+      HAS_APP: ${{ secrets.RELEASE_PLEASE_CLIENT_ID != '' || secrets.RELEASE_PLEASE_PRIVATE_KEY != '' }}
+      APP_INPUTS_VALID: >-
+        ${{ secrets.RELEASE_PLEASE_CLIENT_ID != '' &&
+        !startsWith(secrets.RELEASE_PLEASE_CLIENT_ID, '${') &&
+        secrets.RELEASE_PLEASE_PRIVATE_KEY != '' &&
+        !startsWith(secrets.RELEASE_PLEASE_PRIVATE_KEY, '${') }}
     steps:
-      - name: Fetch automation credentials
-        id: doppler_automation_0
-        if: "env.HAS_APP == 'true'"
-        uses: dopplerhq/secrets-fetch-action@451892f16195f9ac360e1a5bcbf0b5fd0e957534
-        with:
-          auth-method: oidc
-          doppler-identity-id: ${{ vars.DOPPLER_AUTOMATION_IDENTITY_ID }}
-          doppler-project: typing-sound
-          doppler-config: automation
-          inject-env-vars: false
       - name: Reject missing or unresolved automation credentials
-        if: >-
-          ${{ steps.doppler_automation_0.outcome == 'success' && (
-          steps.doppler_automation_0.outputs.GITHUB_APP_CLIENT_ID == '' ||
-          startsWith(steps.doppler_automation_0.outputs.GITHUB_APP_CLIENT_ID, '${') ||
-          steps.doppler_automation_0.outputs.GITHUB_APP_PRIVATE_KEY == '' ||
-          startsWith(steps.doppler_automation_0.outputs.GITHUB_APP_PRIVATE_KEY, '${')
-          ) }}
+        if: env.HAS_APP == 'true' && env.APP_INPUTS_VALID != 'true'
         shell: bash
         run: exit 1
 
@@ -62,10 +55,12 @@ jobs:
         if: env.HAS_APP == 'true'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          client-id: ${{ steps.doppler_automation_0.outputs.GITHUB_APP_CLIENT_ID }}
-          private-key: ${{ steps.doppler_automation_0.outputs.GITHUB_APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.RELEASE_PLEASE_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
+          repositories: typing-sound
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: release-please (active)
         id: rp
@@ -76,9 +71,8 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # The Release is a DRAFT (config "draft": true), which fires no `release` event and
-      # creates no tag, so dispatch release.yml explicitly. GITHUB_TOKEN may trigger
-      # workflow_dispatch (the one recursion-guard exception), so no App token needed.
+      # The Release is a DRAFT (config "draft": true), which fires no `release` event and creates no tag, so dispatch release.yml explicitly.
+      # GITHUB_TOKEN may trigger workflow_dispatch (the one recursion-guard exception), so no App token needed.
       - name: Trigger the signed-release build
         if: ${{ env.HAS_APP == 'true' && steps.rp.outputs.release_created == 'true' }}
         env:
