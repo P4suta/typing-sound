@@ -97,7 +97,7 @@ public sealed partial class App : Application, IDisposable
         // Every wav in Assets/Sounds except "bell" forms the typing-sound pool. Adding wavs to the
         // Assets/Sounds folder next to the exe grows the pool, which ShuffleQueueSelector cycles through
         // without repeats. Configuration stays portable.
-        IReadOnlyList<ISoundClip> typingPool = [.. bank.Clips.Where(clip => clip.Id != ReturnBellId)];
+        ISoundClip[] typingPool = [.. bank.Clips.Where(clip => clip.Id != ReturnBellId)];
         SoundCatalog catalog = new(typingPool, bank.FindById(ReturnBellId));
         IReadOnlyList<ISoundMode> modes = DefaultModeSet.Create(catalog);
 

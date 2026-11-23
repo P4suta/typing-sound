@@ -32,16 +32,20 @@ build-all:
 test: test-platform
     {{dotnet}} test {{tests}}
 
+# Install the framework used by tests and the packaging helper alongside the SDK.
+runtime:
+    mise install "dotnet[runtime=dotnet]@10.0.15"
+
 # Audio adapter tests without a physical device
-test-platform:
+test-platform: runtime
     {{dotnet}} test {{platform_tests}} --filter "Category!=AudioDevice"
 
 # Check silent playback startup and disposal on an active Windows audio device
-test-audio-device:
+test-audio-device: runtime
     {{dotnet}} test {{platform_tests}} --filter "Category=AudioDevice"
 
 # Tests with coverage; fails the build below cov_threshold (CI gate).
-test-cov:
+test-cov: runtime
     {{dotnet}} test {{tests}} -p:CollectCoverage=true -p:CoverletOutputFormat=cobertura -p:Threshold={{cov_threshold}} -p:ThresholdType=line -p:ThresholdStat=total
 
 # Dev setup: install git hooks (lefthook: commit-msg Conventional Commits check).
@@ -60,7 +64,7 @@ fmt:
 verify: fmt-check build-all test-cov test-platform
 
 # Stop running instances
-kill:
+kill: runtime
     {{dotnet}} run --project {{tsbuild}} -- kill
 
 # Build and launch (unpackaged, so run the exe directly); default x64
@@ -73,16 +77,16 @@ publish arch="x64":
 
 # Build the distribution layout: dist/TypingSound/{TypingSound.exe (entry), app/ (bundle)}; default x64
 # The layout assembly (copy/README/checksums) lives in the C# tool eng/TsBuild, not shell.
-dist arch="x64": (publish arch)
+dist arch="x64": runtime (publish arch)
     {{dotnet}} publish {{launcher}} -c Release -r win-{{arch}} --self-contained true
     {{dotnet}} run --project {{tsbuild}} -- assemble {{arch}}
 
 # Zip + checksum the distribution into build/package/. e.g. just package v0.1.0
 # Run just dist {{arch}} first to create dist/TypingSound.
-package tag arch="x64":
+package tag arch="x64": runtime
     {{dotnet}} run --project {{tsbuild}} -- pack {{tag}} {{arch}}
 
 # Remove build artifacts and dist
-clean:
+clean: runtime
     {{dotnet}} run --project {{tsbuild}} -- clean
     {{dotnet}} clean TypingSound.slnx
